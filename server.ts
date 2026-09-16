@@ -177,8 +177,8 @@ const toolDeclarations: FunctionDeclaration[] = [
   },
 ];
 
-// Helper to simulate tool execution and return structured result
-function executeAssistantTool(name: string, args: Record<string, any>, contextData?: any) {
+// Helper to execute tools with optional external API dispatching
+async function executeAssistantTool(name: string, args: Record<string, any>, contextData?: any) {
   const timestamp = new Date().toISOString();
   switch (name) {
     case "enviarCorreo":
@@ -245,10 +245,44 @@ function executeAssistantTool(name: string, args: Record<string, any>, contextDa
     case "enviar_whatsapp": {
       const recipient = args.contacto || args.destinatario || "Contacto";
       const phone = args.telefono || (args.contacto && /^(\+|\d)/.test(args.contacto) ? args.contacto : "");
+      let messageId = `wa_${Date.now()}`;
+      let deliveryNote = "";
+
+      // Optional real WhatsApp dispatch if WHATSAPP_API_TOKEN is provided
+      if (process.env.WHATSAPP_API_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && phone) {
+        try {
+          const cleanPhone = phone.replace(/[^0-9]/g, "");
+          const waRes = await fetch(
+            `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.WHATSAPP_API_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: cleanPhone,
+                type: "text",
+                text: { preview_url: false, body: args.mensaje },
+              }),
+            }
+          );
+          const waData: any = await waRes.json();
+          if (waData?.messages?.[0]?.id) {
+            messageId = waData.messages[0].id;
+            deliveryNote = " vía WhatsApp Cloud API";
+          }
+        } catch (waErr) {
+          console.warn("WhatsApp Cloud API error:", waErr);
+        }
+      }
+
       return {
         status: "success",
-        id: `wa_${Date.now()}`,
-        message: `Listo, envié el mensaje de WhatsApp a ${recipient}.`,
+        id: messageId,
+        message: `Listo, envié el mensaje de WhatsApp a ${recipient}${deliveryNote ? ` (${deliveryNote.trim()})` : ""}.`,
         data: {
           recipient,
           phone,
@@ -339,6 +373,14 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/config-status", (req, res) => {
+  res.json({
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    gmailConfigured: Boolean(process.env.GMAIL_CLIENT_ID),
+    whatsappConfigured: Boolean(process.env.WHATSAPP_API_TOKEN),
+  });
+});
+
 // Helper for resilient Gemini API calls with retry on temporary 503 / rate limits
 async function generateContentWithRetry(ai: GoogleGenAI, params: any, maxRetries = 2) {
   let attempt = 0;
@@ -418,7 +460,7 @@ app.post("/api/chat", async (req, res) => {
       const toolResponseParts: any[] = [];
 
       for (const call of functionCalls) {
-        const result = executeAssistantTool(call.name, call.args || {}, contextData);
+        const result = await executeAssistantTool(call.name, call.args || {}, contextData);
         toolInvocations.push({
           name: call.name,
           args: call.args || {},
