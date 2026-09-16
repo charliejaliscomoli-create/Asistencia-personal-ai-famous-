@@ -1,0 +1,6 @@
+{
+  "name": "Asistente de Voz Personal",
+  "description": "Asistente personal por voz inteligente, eficiente y conciso para gestionar correos, calendario, notas, WhatsApp, alarmas y recordatorios.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
