@@ -381,40 +381,63 @@ app.get("/api/config-status", (req, res) => {
   });
 });
 
-// Helper for resilient Gemini API calls with retry on temporary 503 / rate limits
+// Helper for resilient Gemini API calls with automatic retry and model fallback on quota limits
 async function generateContentWithRetry(ai: GoogleGenAI, params: any, maxRetries = 2) {
-  let attempt = 0;
+  const modelsToTry = [params.model || "gemini-3.6-flash", "gemini-3.8-flash"];
+  let lastError: any = null;
 
-  while (attempt < maxRetries) {
-    try {
-      return await ai.models.generateContent(params);
-    } catch (err: any) {
-      attempt++;
-      const isTransient =
-        err?.message?.includes("503") ||
-        err?.message?.includes("high demand") ||
-        err?.message?.includes("UNAVAILABLE") ||
-        err?.status === 503;
+  for (const model of modelsToTry) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        return await ai.models.generateContent({
+          ...params,
+          model,
+        });
+      } catch (err: any) {
+        lastError = err;
+        attempt++;
 
-      if (isTransient && attempt < maxRetries) {
-        const delay = attempt * 800;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+        const isQuota =
+          err?.message?.includes("429") ||
+          err?.message?.includes("Quota exceeded") ||
+          err?.message?.includes("RESOURCE_EXHAUSTED") ||
+          err?.status === 429;
+
+        if (isQuota) {
+          // Switch to next fallback model immediately
+          break;
+        }
+
+        const isTransient =
+          err?.message?.includes("503") ||
+          err?.message?.includes("high demand") ||
+          err?.message?.includes("UNAVAILABLE") ||
+          err?.status === 503;
+
+        if (isTransient && attempt < maxRetries) {
+          const delay = attempt * 700;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        break;
       }
-      throw err;
     }
   }
-  throw new Error("No se pudo conectar con el modelo tras varios intentos.");
+
+  throw lastError || new Error("No se pudo conectar con el modelo tras varios intentos.");
 }
 
 // Chat / Voice processing endpoint
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history = [], contextData = {} } = req.body;
+    const rawMessage = req.body.mensajeUsuario || req.body.message;
+    const { history = [], contextData = {} } = req.body;
 
-    if (!message || typeof message !== "string") {
+    if (!rawMessage || typeof rawMessage !== "string") {
       return res.status(400).json({ error: "El mensaje es requerido." });
     }
+    const message = rawMessage;
 
     const ai = getAiClient();
 
@@ -443,7 +466,7 @@ app.post("/api/chat", async (req, res) => {
     const dynamicSystemInstruction = `${SYSTEM_INSTRUCTION}\n\nFecha y hora actual del sistema: ${new Date().toISOString()}. Cuando llames a crearEventoCalendario, genera fechaInicio en formato ISO 8601 basado en esta fecha.`;
 
     const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.6-flash",
       contents,
       config: {
         systemInstruction: dynamicSystemInstruction,
@@ -506,6 +529,51 @@ app.post("/api/chat", async (req, res) => {
       error: "Error al procesar la solicitud de voz.",
       details: err?.message || "Error interno del servidor.",
     });
+  }
+});
+
+// Firebase Cloud Function compatible endpoint: atenderAsistenteVoz
+app.post("/api/atenderAsistenteVoz", async (req, res) => {
+  try {
+    const rawMessage = req.body.mensajeUsuario || req.body.message;
+    if (!rawMessage || typeof rawMessage !== "string") {
+      return res.status(400).json({ error: "El campo mensajeUsuario es requerido." });
+    }
+
+    const ai = getAiClient();
+    const systemPrompt = `${SYSTEM_INSTRUCTION}
+Fecha y hora actual ISO de referencia: ${new Date().toISOString()}`;
+
+    const response = await generateContentWithRetry(ai, {
+      model: "gemini-3.6-flash",
+      contents: rawMessage,
+      config: {
+        systemInstruction: systemPrompt,
+        tools: [{ functionDeclarations: toolDeclarations }],
+        temperature: 0.3,
+      },
+    });
+
+    const functionCalls = response.functionCalls || [];
+
+    if (functionCalls.length > 0) {
+      const call = functionCalls[0];
+      const resultado = await executeAssistantTool(call.name, call.args || {});
+      return res.json({
+        tipo: "accion",
+        accion: call.name,
+        argumentos: call.args,
+        resultado,
+      });
+    }
+
+    return res.json({
+      tipo: "texto",
+      respuesta: response.text?.trim() || "Entendido. ¿En qué más puedo ayudarte?",
+    });
+  } catch (error: any) {
+    console.error("Error in /api/atenderAsistenteVoz:", error);
+    return res.status(500).json({ error: error?.message || "Error interno" });
   }
 });
 

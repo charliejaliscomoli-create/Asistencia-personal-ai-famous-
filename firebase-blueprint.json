@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil del usuario registrado en el asistente.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["userId", "email"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "Cita o evento en el calendario del usuario.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 256 },
+        "date": { "type": "string", "maxLength": 32 },
+        "time": { "type": "string", "maxLength": 32 },
+        "duration": { "type": "string", "maxLength": 32 },
+        "description": { "type": "string", "maxLength": 1024 },
+        "category": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["title", "date", "time", "userId"]
+    },
+    "Alarm": {
+      "title": "Alarm",
+      "description": "Alarma de reloj configurada por voz o manualmente.",
+      "type": "object",
+      "properties": {
+        "time": { "type": "string", "maxLength": 16 },
+        "label": { "type": "string", "maxLength": 128 },
+        "enabled": { "type": "boolean" },
+        "days": { "type": "array" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["time", "label", "enabled", "userId"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Recordatorio o tarea pendiente con hora.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 512 },
+        "dueTime": { "type": "string", "maxLength": 64 },
+        "completed": { "type": "boolean" },
+        "priority": { "type": "string", "enum": ["baja", "media", "alta"] },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["text", "dueTime", "completed", "userId"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Nota personal rápida del usuario.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 256 },
+        "content": { "type": "string", "maxLength": 4096 },
+        "color": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["title", "content", "userId"]
+    },
+    "WhatsAppMessage": {
+      "title": "WhatsAppMessage",
+      "description": "Registro de mensaje enviado a través de WhatsApp.",
+      "type": "object",
+      "properties": {
+        "recipient": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "message": { "type": "string", "maxLength": 2048 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["sent", "delivered"] },
+        "userId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["recipient", "message", "userId"]
+    },
+    "Email": {
+      "title": "Email",
+      "description": "Registro de correo electrónico gestionado por el asistente.",
+      "type": "object",
+      "properties": {
+        "to": { "type": "string", "maxLength": 256 },
+        "from": { "type": "string", "maxLength": 256 },
+        "subject": { "type": "string", "maxLength": 256 },
+        "body": { "type": "string", "maxLength": 4096 },
+        "date": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["sent", "received", "draft"] },
+        "userId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["to", "subject", "body", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Perfil del usuario autenticado"
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": "CalendarEvent",
+      "description": "Eventos de calendario pertenecientes al usuario"
+    },
+    "/users/{userId}/alarms/{alarmId}": {
+      "schema": "Alarm",
+      "description": "Alarmas pertenecientes al usuario"
+    },
+    "/users/{userId}/reminders/{reminderId}": {
+      "schema": "Reminder",
+      "description": "Recordatorios pertenecientes al usuario"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "Note",
+      "description": "Notas pertenecientes al usuario"
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": "WhatsAppMessage",
+      "description": "Mensajes de WhatsApp pertenecientes al usuario"
+    },
+    "/users/{userId}/emails/{emailId}": {
+      "schema": "Email",
+      "description": "Correos electrónicos pertenecientes al usuario"
+    }
+  }
+}

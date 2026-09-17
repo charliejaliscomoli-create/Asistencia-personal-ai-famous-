@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#312E81" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#bg)" />
+  <circle cx="96" cy="96" r="48" fill="url(#glow)" opacity="0.3" />
+  <circle cx="96" cy="96" r="32" fill="url(#glow)" />
+  <!-- Microphone / Wave Icon -->
+  <path d="M96 66 C90.5 66 86 70.5 86 76 L86 94 C86 99.5 90.5 104 96 104 C101.5 104 106 99.5 106 94 L106 76 C106 70.5 101.5 66 96 66 Z" fill="#FFFFFF" />
+  <path d="M78 90 C78 100 86 108 96 108 C106 108 114 100 114 90 M96 108 L96 122 M86 122 L106 122" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

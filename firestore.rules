@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: default-deny all unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection handshake probe
+    match /test/{testId} {
+      allow read: if true;
+    }
+
+    // Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profile Document
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 256;
+      allow update: if isOwner(userId) && isValidId(userId)
+        && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Calendar Events
+      match /events/{eventId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(eventId)
+          && request.resource.data.userId == userId
+          && request.resource.data.title is string && request.resource.data.title.size() <= 256
+          && request.resource.data.date is string && request.resource.data.date.size() <= 32
+          && request.resource.data.time is string && request.resource.data.time.size() <= 32;
+      }
+
+      // Alarms
+      match /alarms/{alarmId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(alarmId)
+          && request.resource.data.userId == userId
+          && request.resource.data.time is string && request.resource.data.time.size() <= 16
+          && request.resource.data.label is string && request.resource.data.label.size() <= 128
+          && request.resource.data.enabled is bool;
+      }
+
+      // Reminders
+      match /reminders/{reminderId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(reminderId)
+          && request.resource.data.userId == userId
+          && request.resource.data.text is string && request.resource.data.text.size() <= 512
+          && request.resource.data.dueTime is string && request.resource.data.dueTime.size() <= 64
+          && request.resource.data.completed is bool;
+      }
+
+      // Notes
+      match /notes/{noteId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(noteId)
+          && request.resource.data.userId == userId
+          && request.resource.data.title is string && request.resource.data.title.size() <= 256
+          && request.resource.data.content is string && request.resource.data.content.size() <= 4096;
+      }
+
+      // WhatsApp Messages
+      match /messages/{messageId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(messageId)
+          && request.resource.data.userId == userId
+          && request.resource.data.recipient is string && request.resource.data.recipient.size() <= 128
+          && request.resource.data.message is string && request.resource.data.message.size() <= 2048;
+      }
+
+      // Emails
+      match /emails/{emailId} {
+        allow get, list, delete: if isOwner(userId) && isValidId(userId);
+        allow create, update: if isOwner(userId) && isValidId(userId) && isValidId(emailId)
+          && request.resource.data.userId == userId
+          && request.resource.data.to is string && request.resource.data.to.size() <= 256
+          && request.resource.data.subject is string && request.resource.data.subject.size() <= 256
+          && request.resource.data.body is string && request.resource.data.body.size() <= 4096;
+      }
+    }
+  }
+}
