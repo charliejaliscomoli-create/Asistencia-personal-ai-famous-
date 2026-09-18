@@ -1,34 +1,43 @@
-name: CI Build & Lint
+name: Build application
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
   pull_request:
-    branches: [ main, master ]
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extracted/Famous-asistent-main/package.json
 
-      - name: npm install, build, and test
+      - name: Extract application
+        shell: bash
         run: |
-          npm ci
-          npm run build
-          npm test
+          set -euo pipefail
+          mkdir -p extracted
+          unzip -q "Famous-asistent-main oficial .zip" -d extracted
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-artifact
-          path: dist/
-          if-no-files-found: error
+      - name: Install dependencies
+        working-directory: extracted/Famous-asistent-main
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        working-directory: extracted/Famous-asistent-main
+        run: npm run lint
+
+      - name: Build
+        working-directory: extracted/Famous-asistent-main
+        run: npm run build
+        
