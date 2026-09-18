@@ -1,124 +1,62 @@
-# Asistente IA Personal por Voz (Gemini Flash + Firebase)
+# Asistente de Voz Personal 🎙️
 
-Asistente inteligente por voz que procesa comandos en lenguaje natural y ejecuta acciones automáticas mediante herramientas compiladas (Function Calling) usando el SDK oficial `@google/genai`.
+Asistente personal inteligente con reconocimiento y síntesis de voz, impulsado por **Google Gemini 2.5 Flash** y persistencia en la nube mediante **Firebase Cloud Firestore** y autenticación oficial con **Google / Gmail**.
 
-## Herramientas Compiladas Soportadas
-
-1. **`crearEventoCalendario`**: Agenda citas en Google Calendar con título, fecha ISO y duración.
-2. **`enviarCorreo`**: Envía correos con Gmail a destinatario con asunto y cuerpo.
-3. **`enviarMensajeWhatsApp`**: Envía mensajes a contactos o números mediante WhatsApp Cloud API / wa.me.
-4. **`programarAlarmaORecordatorio`**: Programa alarmas físicas de reloj (`esAlarma: true`) o recordatorios con notificación (`esAlarma: false`).
+## 🚀 Características Principales
+- **Interacción por Voz:** Dictado en tiempo real y respuestas automáticas habladas (Web Speech API).
+- **Herramientas Automatizadas (Function Calling):**
+  - 📅 **Google Calendar:** Agenda citas y reuniones automáticamente.
+  - 💬 **WhatsApp:** Redacta y prepara mensajes directos a contactos.
+  - ✉️ **Gmail / Correo:** Redacta y envía correos electrónicos.
+  - ⏰ **Alarmas:** Programa alarmas recurrentes con prueba de sonido sintetizado.
+  - 🔔 **Recordatorios:** Gestión de tareas prioritarias.
+  - 📝 **Bloc de Notas:** Guarda notas e ideas dictadas.
+- **Autenticación y Nube:**
+  - Registro e inicio de sesión con cuenta de Gmail (Google OAuth 2.0).
+  - Sincronización en tiempo real en la nube con Firebase Firestore.
+- **Ajustes y Personalización:**
+  - Control de velocidad y tono de voz, temas visuales y exportación/importación JSON.
+- **Instalable (PWA):**
+  - Compatible con instalación directa en teléfonos Android o PC como aplicación independiente.
 
 ---
 
-## Estructura del Proyecto
+## 🛠️ Instalación y Compilación Local
 
-- `/src`: Aplicación web interactiva en React + Vite + Tailwind con reconocimiento de voz (Web Speech API / dictado en vivo), síntesis de voz (TTS) y panel de control por pestañas.
-- `/server.ts`: Servidor backend Express en Node.js que expone `/api/chat` y `/api/atenderAsistenteVoz`.
-- `/firebase-functions/`: Código listo para producción para desplegar como Cloud Function en Firebase (`index.js`).
-
----
-
-## Despliegue en Firebase Cloud Functions
-
-### 1. Requisitos
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase init functions
-```
-
-### 2. Variables de Entorno en Firebase
-Configura tu clave de Gemini en el entorno de Firebase:
-```bash
-firebase functions:secrets:set GEMINI_API_KEY
-```
-
-O define la variable en `.env` dentro de `firebase-functions/`:
-```env
-GEMINI_API_KEY=tu_api_key_de_ai_studio
-```
-
-### 3. Despliegue
-```bash
-cd firebase-functions
+# 1. Instalar dependencias
 npm install
-firebase deploy --only functions
+
+# 2. Configurar variables de entorno en .env
+cp .env.example .env
+
+# 3. Iniciar en modo desarrollo
+npm run dev
+
+# 4. Compilar para producción (Build estático + servidor)
+npm run build
+npm start
 ```
 
 ---
 
-## Descarga e Instalación en Android (APK y WebAPK)
+## 📦 Compilación y Despliegue en GitHub
 
-Tienes **dos opciones directas** para instalar y utilizar esta aplicación en Android:
-
-### Opción 1: Instalación Directa en Android (Recomendada - Sin PC ni cables)
-La aplicación cuenta con soporte completo **PWA / WebAPK**:
-1. Abre la URL de la aplicación en el navegador **Google Chrome**, **Brave** o **Edge** de tu teléfono Android.
-2. Toca el botón **"Instalar APK"** en el encabezado de la app o abre el menú del navegador (los tres puntos `⋮` arriba a la derecha).
-3. Selecciona **"Instalar aplicación"** o **"Añadir a la pantalla principal"**.
-4. Android generará e instalará automáticamente el paquete nativo **WebAPK** con icono independiente, soporte de pantalla completa y acceso al micrófono.
-
----
-
-### Opción 2: Compilación de archivo APK nativo con Capacitor
-
-El proyecto ya incluye **Capacitor** completamente configurado en `/android` con permisos en `AndroidManifest.xml` (`RECORD_AUDIO`, `INTERNET`, `VIBRATE`, etc.):
-
-1. **Sincronizar cambios web con el proyecto Android:**
-   ```bash
-   npm run android:sync
-   ```
-
-2. **Compilar el archivo APK de depuración:**
-   ```bash
-   npm run android:apk
-   ```
-   *El archivo APK se generará en:* `android/app/build/outputs/apk/debug/app-debug.apk`
-
-3. **Abrir en Android Studio:**
-   ```bash
-   npm run cap:open
-   ```
-   *Desde Android Studio puedes conectar tu teléfono por USB y pulsar "Run" (▶) o generar un APK firmado desde el menú `Build > Build Bundle(s) / APK(s) > Build APK(s)`.*
-
----
-
-Realiza una petición `POST` al endpoint `atenderAsistenteVoz`:
-
-**Endpoint**:
-`POST https://<REGION>-<PROJECT_ID>.cloudfunctions.net/atenderAsistenteVoz`
-
-**Body**:
-```json
-{
-  "mensajeUsuario": "Pon una alarma a las 07:30 para salir al trabajo"
-}
+### Paso 1: Subir el código a tu repositorio de GitHub
+```bash
+git init
+git add .
+git commit -m "feat: Asistente de Voz Personal completo v2.5.0"
+git branch -M main
+git remote add origin https://github.com/TU_USUARIO/TU_REPOSITORIO.git
+git push -u origin main
 ```
 
-**Respuesta cuando invoca una acción**:
-```json
-{
-  "tipo": "accion",
-  "accion": "programarAlarmaORecordatorio",
-  "argumentos": {
-    "etiqueta": "Salir al trabajo",
-    "hora": "07:30",
-    "esAlarma": true
-  },
-  "resultado": {
-    "status": "ok",
-    "action": "SET_LOCAL_ALARM",
-    "message": "Listo, configuré tu alarma para las 07:30."
-  }
-}
-```
+### Paso 2: Configuración de Variables Secretas en GitHub
+En tu repositorio de GitHub, ve a **Settings > Secrets and variables > Actions** y añade:
+- `GEMINI_API_KEY`: Tu clave de API de Google Gemini (obtenible en [Google AI Studio](https://aistudio.google.com/)).
+- `VITE_FIREBASE_API_KEY` (Opcional si usas Firebase Cloud).
+- `VITE_FIREBASE_PROJECT_ID` (Opcional).
 
-**Respuesta cuando es texto directo**:
-```json
-{
-  "tipo": "texto",
-  "respuesta": "Claro, ¿a qué hora te gustaría que programe la alarma?"
-}
-```
-
+### Paso 3: GitHub Actions CI/CD (Opcional)
+El proyecto cuenta con el comando estándar `npm run build` que compila el frontend con Vite y valida los tipos TypeScript con `npm run lint`.

@@ -1,111 +1,86 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, User, Sparkles, AlertCircle } from 'lucide-react';
-import { ChatMessage } from '../types';
+import { Mic, Bot, User, Sparkles } from 'lucide-react';
+import { ChatMessage, AssistantState } from '../types';
 
 interface VoiceTranscriptProps {
+  messages: ChatMessage[];
   currentTranscript: string;
-  isListening: boolean;
-  lastMessage: ChatMessage | null;
-  onReplayVoice: (text: string) => void;
-  isSpeaking: boolean;
-  errorMessage: string | null;
+  assistantState: AssistantState;
 }
 
 export const VoiceTranscript: React.FC<VoiceTranscriptProps> = ({
+  messages,
   currentTranscript,
-  isListening,
-  lastMessage,
-  onReplayVoice,
-  isSpeaking,
-  errorMessage,
+  assistantState,
 }) => {
+  // Show only the last 3-4 messages to keep the view focused and concise
+  const displayMessages = messages.slice(-4);
+
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-2" id="voice-transcript-wrapper">
-      {/* Error notification if mic or network failed */}
-      <AnimatePresence>
-        {errorMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2"
-          >
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            <span className="flex-1">{errorMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="w-full bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-3">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          Conversación por Voz
+        </span>
+        <span className="text-[11px] text-slate-400 font-medium">
+          {assistantState === 'listening'
+            ? 'Escuchando en vivo...'
+            : assistantState === 'thinking'
+            ? 'Pensando...'
+            : 'Listo'}
+        </span>
+      </div>
 
-      {/* Live speech recognition transcription bar */}
-      <AnimatePresence>
-        {isListening && currentTranscript && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-2xl shadow-sm mb-4"
-          >
-            <div className="flex items-center gap-2 mb-1 text-[11px] font-semibold tracking-wider text-emerald-700 uppercase">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              Transcribiendo en vivo:
-            </div>
-            <p className="text-sm font-medium italic">"{currentTranscript}"</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Latest exchange display */}
-      {lastMessage && (
-        <motion.div
-          key={lastMessage.id}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 divide-y divide-slate-100"
-        >
-          {/* User query */}
-          <div className="flex items-start gap-3 pb-3">
-            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-600 mt-0.5">
-              <User className="w-4 h-4" />
-            </div>
-            <div className="flex-1">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Tú</span>
-              <p className="text-sm text-slate-800 font-medium">{lastMessage.text}</p>
-            </div>
+      <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+        {displayMessages.length === 0 && !currentTranscript && (
+          <div className="text-center py-4 text-xs text-slate-400">
+            Presiona el micrófono y di una instrucción como:
+            <span className="block text-indigo-600 font-medium mt-1">
+              "Pon una alarma a las 7:00 am con etiqueta Gimnasio"
+            </span>
           </div>
+        )}
 
-          {/* Assistant Voice Response */}
-          <div className="flex items-start gap-3 pt-3">
-            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0 text-indigo-600 mt-0.5">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
-                  Asistente (Respuesta por voz)
-                </span>
-                <button
-                  id="btn-replay-voice"
-                  onClick={() => onReplayVoice(lastMessage.text)}
-                  className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
-                    isSpeaking
-                      ? 'text-indigo-600 bg-indigo-50 font-medium'
-                      : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
-                  }`}
-                  title="Escuchar de nuevo"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Escuchar</span>
-                </button>
+        {displayMessages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex items-start gap-2 text-xs ${
+              msg.sender === 'user' ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            {msg.sender === 'assistant' && (
+              <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                <Bot className="w-3.5 h-3.5" />
               </div>
-              <p className="text-sm text-slate-900 font-normal leading-relaxed mt-1">
-                {lastMessage.text}
-              </p>
+            )}
+            <div
+              className={`max-w-[85%] rounded-xl px-3 py-2 ${
+                msg.sender === 'user'
+                  ? 'bg-indigo-600 text-white font-medium rounded-tr-none'
+                  : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200/60'
+              }`}
+            >
+              <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
+            </div>
+            {msg.sender === 'user' && (
+              <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                <User className="w-3.5 h-3.5" />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Live realtime speech preview */}
+        {currentTranscript && (
+          <div className="flex items-start gap-2 text-xs justify-end">
+            <div className="max-w-[85%] rounded-xl px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-900 italic rounded-tr-none flex items-center gap-2">
+              <Mic className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+              <span>{currentTranscript}</span>
             </div>
           </div>
-        </motion.div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

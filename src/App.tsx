@@ -1,201 +1,161 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Mic,
-  Send,
+  Settings,
+  Cloud,
+  LogOut,
+  Smartphone,
   Volume2,
   VolumeX,
-  Settings,
-  Sparkles,
-  RefreshCw,
-  Info,
-  Calendar,
-  MessageSquare,
-  Mail,
-  Clock,
-  Bell,
-  StickyNote,
-  Cloud,
-  CloudCheck,
-  LogIn,
-  LogOut,
-  User as UserIcon,
-  Smartphone,
 } from 'lucide-react';
-import { VoiceOrb } from './components/VoiceOrb';
-import { VoiceTranscript } from './components/VoiceTranscript';
-import { ToolActivityFeed } from './components/ToolActivityFeed';
-import { DashboardView } from './components/DashboardView';
-import { QuickPrompts } from './components/QuickPrompts';
-import { AudioSettingsModal } from './components/AudioSettingsModal';
-import { InstallAppModal } from './components/InstallAppModal';
 import {
+  AssistantState,
   CalendarEventItem,
   WhatsAppMessageItem,
   EmailItem,
   AlarmItem,
   ReminderItem,
   NoteItem,
-  AssistantState,
   ChatMessage,
   ToolInvocation,
+  AppSettings,
 } from './types';
 import {
+  initialEvents,
+  initialWhatsApp,
   initialEmails,
-  initialCalendarEvents,
-  initialNotes,
-  initialWhatsAppMessages,
   initialAlarms,
   initialReminders,
+  initialNotes,
 } from './data/initialData';
+import { VoiceOrb } from './components/VoiceOrb';
+import { VoiceTranscript } from './components/VoiceTranscript';
+import { ToolActivityFeed } from './components/ToolActivityFeed';
+import { QuickPrompts } from './components/QuickPrompts';
+import { DashboardView } from './components/DashboardView';
+import { AudioSettingsModal } from './components/AudioSettingsModal';
+import { AppSettingsModal } from './components/AppSettingsModal';
+import { AuthModal } from './components/AuthModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import { speechService } from './services/speechService';
 import { soundEffects } from './services/audioService';
 import {
   auth,
-  testFirestoreConnection,
-  signInWithGoogle,
-  logoutUser,
   onAuthStateChanged,
+  signInWithGoogle,
+  logOut,
   type User,
 } from './lib/firebase';
 import {
-  subscribeUserData,
+  saveUserProfileToFirestore,
   saveEventToFirestore,
+  deleteEventFromFirestore,
   saveAlarmToFirestore,
+  deleteAlarmFromFirestore,
   saveReminderToFirestore,
+  deleteReminderFromFirestore,
   saveNoteToFirestore,
-  saveMessageToFirestore,
+  deleteNoteFromFirestore,
+  saveWhatsAppToFirestore,
+  deleteWhatsAppFromFirestore,
   saveEmailToFirestore,
-  deleteItemFromFirestore,
+  deleteEmailFromFirestore,
+  subscribeToUserData,
 } from './services/firestoreSync';
 
+const defaultSettings: AppSettings = {
+  theme: 'light',
+  density: 'comfortable',
+  showQuickPrompts: true,
+  speechRate: 1.05,
+  speechPitch: 1.0,
+  speechVoiceName: '',
+  soundEffectsEnabled: true,
+  muteSpeech: false,
+  pushNotificationsEnabled: false,
+  alarmVibration: true,
+  autoListenAfterReply: false,
+  confirmBeforeActions: false,
+};
+
 export default function App() {
-  // Firebase Auth State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
-  const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
-
-  // Assistant Status
+  // Assistant core state
   const [assistantState, setAssistantState] = useState<AssistantState>('idle');
-  const [currentTranscript, setCurrentTranscript] = useState('');
-  const [lastMessage, setLastMessage] = useState<ChatMessage | null>(null);
-  const [latestTools, setLatestTools] = useState<ToolInvocation[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [textInput, setTextInput] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [installModalOpen, setInstallModalOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('resumen');
+  const [currentTranscript, setCurrentTranscript] = useState<string>('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [recentTools, setRecentTools] = useState<ToolInvocation[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('resumen');
 
-  // Listen for native Android PWA install prompt
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
-  const handleTriggerInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      try {
-        const choice = await deferredPrompt.userChoice;
-        console.log('Install prompt result:', choice.outcome);
-      } catch (err) {
-        console.warn('Install error:', err);
-      }
-      setDeferredPrompt(null);
-    }
-  };
-
-  // Daily Manager State with LocalStorage persistence fallback
+  // Application data entities
   const [events, setEvents] = useState<CalendarEventItem[]>(() => {
     const saved = localStorage.getItem('asistente_events');
-    return saved ? JSON.parse(saved) : initialCalendarEvents;
+    return saved ? JSON.parse(saved) : initialEvents;
   });
-
   const [whatsAppMessages, setWhatsAppMessages] = useState<WhatsAppMessageItem[]>(() => {
-    const saved = localStorage.getItem('asistente_wa');
-    return saved ? JSON.parse(saved) : initialWhatsAppMessages;
+    const saved = localStorage.getItem('asistente_whatsapp');
+    return saved ? JSON.parse(saved) : initialWhatsApp;
   });
-
   const [emails, setEmails] = useState<EmailItem[]>(() => {
     const saved = localStorage.getItem('asistente_emails');
     return saved ? JSON.parse(saved) : initialEmails;
   });
-
   const [alarms, setAlarms] = useState<AlarmItem[]>(() => {
     const saved = localStorage.getItem('asistente_alarms');
     return saved ? JSON.parse(saved) : initialAlarms;
   });
-
   const [reminders, setReminders] = useState<ReminderItem[]>(() => {
     const saved = localStorage.getItem('asistente_reminders');
     return saved ? JSON.parse(saved) : initialReminders;
   });
-
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     const saved = localStorage.getItem('asistente_notes');
     return saved ? JSON.parse(saved) : initialNotes;
   });
 
-  // Conversation history for multi-turn parameter prompting
-  const chatHistoryRef = useRef<Array<{ role: 'user' | 'assistant'; parts: any[] }>>([]);
+  // Settings
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('asistente_settings');
+    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+  });
 
-  // Test Firebase connection and track Auth state
+  // Modals
+  const [audioSettingsOpen, setAudioSettingsOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // User & Firebase Auth
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
+
+  // PWA install prompt detection
   useEffect(() => {
-    testFirestoreConnection().then((connected) => {
-      setIsFirebaseConnected(connected);
-    });
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setIsAuthLoading(false);
-    });
-
-    return () => unsubscribe();
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
-  // Listen to Firestore real-time collections when user is logged in
+  // Sync settings with services
   useEffect(() => {
-    if (!currentUser) return;
+    soundEffects.setEnabled(appSettings.soundEffectsEnabled);
+    speechService.setRate(appSettings.speechRate);
+    speechService.setPitch(appSettings.speechPitch);
+    if (appSettings.speechVoiceName) {
+      speechService.setPreferredVoice(appSettings.speechVoiceName);
+    }
+  }, [appSettings]);
 
-    setIsSyncingCloud(true);
-    const unsubscribeSync = subscribeUserData(currentUser.uid, {
-      onEvents: (liveEvents) => {
-        if (liveEvents.length > 0) setEvents(liveEvents);
-      },
-      onAlarms: (liveAlarms) => {
-        if (liveAlarms.length > 0) setAlarms(liveAlarms);
-      },
-      onReminders: (liveReminders) => {
-        if (liveReminders.length > 0) setReminders(liveReminders);
-      },
-      onNotes: (liveNotes) => {
-        if (liveNotes.length > 0) setNotes(liveNotes);
-      },
-      onMessages: (liveMsgs) => {
-        if (liveMsgs.length > 0) setWhatsAppMessages(liveMsgs);
-      },
-      onEmails: (liveEmails) => {
-        if (liveEmails.length > 0) setEmails(liveEmails);
-      },
-    });
-
-    setIsSyncingCloud(false);
-    return () => unsubscribeSync();
-  }, [currentUser]);
-
-  // Sync to localStorage as local fallback
+  // Save to localStorage whenever data changes
   useEffect(() => {
     localStorage.setItem('asistente_events', JSON.stringify(events));
   }, [events]);
   useEffect(() => {
-    localStorage.setItem('asistente_wa', JSON.stringify(whatsAppMessages));
+    localStorage.setItem('asistente_whatsapp', JSON.stringify(whatsAppMessages));
   }, [whatsAppMessages]);
   useEffect(() => {
     localStorage.setItem('asistente_emails', JSON.stringify(emails));
@@ -209,467 +169,461 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('asistente_notes', JSON.stringify(notes));
   }, [notes]);
+  useEffect(() => {
+    localStorage.setItem('asistente_settings', JSON.stringify(appSettings));
+  }, [appSettings]);
 
-  // Handle Google Login
+  // Listen to Firebase Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsAuthLoading(false);
+      setIsFirebaseConnected(Boolean(user));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync with Firestore when logged in
+  useEffect(() => {
+    if (!currentUser) return;
+    setIsFirebaseConnected(true);
+
+    saveUserProfileToFirestore(currentUser.uid, {
+      email: currentUser.email,
+      displayName: currentUser.displayName,
+    }).catch(console.warn);
+
+    const unsub = subscribeToUserData(currentUser.uid, {
+      onEvents: (remoteEvents) => {
+        if (remoteEvents.length > 0) setEvents(remoteEvents);
+      },
+      onAlarms: (remoteAlarms) => {
+        if (remoteAlarms.length > 0) setAlarms(remoteAlarms);
+      },
+      onReminders: (remoteReminders) => {
+        if (remoteReminders.length > 0) setReminders(remoteReminders);
+      },
+      onNotes: (remoteNotes) => {
+        if (remoteNotes.length > 0) setNotes(remoteNotes);
+      },
+      onWhatsApp: (remoteWA) => {
+        if (remoteWA.length > 0) setWhatsAppMessages(remoteWA);
+      },
+      onEmails: (remoteEmails) => {
+        if (remoteEmails.length > 0) setEmails(remoteEmails);
+      },
+    });
+
+    return () => unsub();
+  }, [currentUser]);
+
+  // Auth actions
   const handleGoogleSignIn = async () => {
     try {
-      setErrorMessage(null);
       await signInWithGoogle();
-    } catch (err: any) {
-      console.error('Google sign in error:', err);
-      setErrorMessage(err?.message || 'No se pudo iniciar sesión con Google.');
+    } catch (e) {
+      console.error('Google Sign-in failed:', e);
     }
   };
 
-  // Handle Sign Out
   const handleSignOut = async () => {
     try {
-      await logoutUser();
-    } catch (err: any) {
-      console.error('Sign out error:', err);
+      await logOut();
+      setCurrentUser(null);
+      setIsFirebaseConnected(false);
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+  };
+
+  // Toggle & Delete handlers
+  const handleToggleAlarm = (id: string) => {
+    setAlarms((prev) =>
+      prev.map((al) => {
+        if (al.id === id) {
+          const updated = { ...al, enabled: !al.enabled };
+          if (currentUser) saveAlarmToFirestore(currentUser.uid, updated).catch(console.warn);
+          return updated;
+        }
+        return al;
+      })
+    );
+  };
+
+  const handleToggleReminder = (id: string) => {
+    setReminders((prev) =>
+      prev.map((rem) => {
+        if (rem.id === id) {
+          const updated = { ...rem, completed: !rem.completed };
+          if (currentUser) saveReminderToFirestore(currentUser.uid, updated).catch(console.warn);
+          return updated;
+        }
+        return rem;
+      })
+    );
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    if (currentUser) deleteEventFromFirestore(currentUser.uid, id).catch(console.warn);
+  };
+
+  const handleDeleteNote = (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    if (currentUser) deleteNoteFromFirestore(currentUser.uid, id).catch(console.warn);
+  };
+
+  const handleDeleteReminder = (id: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+    if (currentUser) deleteReminderFromFirestore(currentUser.uid, id).catch(console.warn);
+  };
+
+  const handleResetData = () => {
+    setEvents(initialEvents);
+    setWhatsAppMessages(initialWhatsApp);
+    setEmails(initialEmails);
+    setAlarms(initialAlarms);
+    setReminders(initialReminders);
+    setNotes(initialNotes);
+  };
+
+  const handleExportData = () => {
+    const payload = {
+      version: '2.5.0',
+      exportedAt: new Date().toISOString(),
+      user: currentUser ? { email: currentUser.email, uid: currentUser.uid } : null,
+      events,
+      whatsAppMessages,
+      emails,
+      alarms,
+      reminders,
+      notes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `asistente_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (data: any) => {
+    if (!data || typeof data !== 'object') return;
+    if (Array.isArray(data.events)) setEvents(data.events);
+    if (Array.isArray(data.whatsAppMessages)) setWhatsAppMessages(data.whatsAppMessages);
+    if (Array.isArray(data.emails)) setEmails(data.emails);
+    if (Array.isArray(data.alarms)) setAlarms(data.alarms);
+    if (Array.isArray(data.reminders)) setReminders(data.reminders);
+    if (Array.isArray(data.notes)) setNotes(data.notes);
+
+    if (currentUser) {
+      if (Array.isArray(data.events)) {
+        data.events.forEach((ev: any) => saveEventToFirestore(currentUser.uid, ev).catch(console.warn));
+      }
+      if (Array.isArray(data.alarms)) {
+        data.alarms.forEach((al: any) => saveAlarmToFirestore(currentUser.uid, al).catch(console.warn));
+      }
+      if (Array.isArray(data.reminders)) {
+        data.reminders.forEach((rem: any) => saveReminderToFirestore(currentUser.uid, rem).catch(console.warn));
+      }
+      if (Array.isArray(data.notes)) {
+        data.notes.forEach((nt: any) => saveNoteToFirestore(currentUser.uid, nt).catch(console.warn));
+      }
     }
   };
 
   // Main interaction handler
   const processUserPrompt = useCallback(
     async (promptText: string) => {
-      const trimmed = promptText.trim();
-      if (!trimmed) return;
+      if (!promptText.trim()) return;
 
-      setErrorMessage(null);
-      setAssistantState('thinking');
+      const userMsg: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        sender: 'user',
+        text: promptText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMsg]);
       setCurrentTranscript('');
-
-      // Add to conversation history
-      chatHistoryRef.current.push({
-        role: 'user',
-        parts: [{ text: trimmed }],
-      });
+      setAssistantState('thinking');
 
       try {
-        const response = await fetch('/api/chat', {
+        const response = await fetch('/api/assistant', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: trimmed,
-            history: chatHistoryRef.current.slice(-6),
-            contextData: {
-              eventosCount: events.length,
-              recordatoriosCount: reminders.filter((r) => !r.completed).length,
-              alarmasCount: alarms.filter((a) => a.enabled).length,
-              correosCount: emails.length,
-            },
-          }),
+          body: JSON.stringify({ prompt: promptText }),
         });
-
-        if (!response.ok) {
-          throw new Error(`Error en el servidor (${response.status})`);
-        }
 
         const data = await response.json();
-        const replyText = data.reply || 'He recibido tu solicitud.';
-        const tools: ToolInvocation[] = data.toolInvocations || [];
+        const executedTools: ToolInvocation[] = [];
 
-        // Apply tool modifications to client state
-        if (tools.length > 0) {
-          soundEffects.playActionSuccess();
-          setLatestTools(tools);
+        // Apply returned tool calls
+        if (Array.isArray(data.toolCalls)) {
+          for (const call of data.toolCalls) {
+            const toolId = `tool-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-          tools.forEach((tool) => {
-            if (tool.result && tool.result.status === 'success') {
-              const itemData = tool.result.data;
-              switch (tool.name) {
-                case 'crearEventoCalendario':
-                case 'gestionar_calendario':
-                  if (itemData) {
-                    const newEvent: CalendarEventItem = {
-                      id: tool.result.id || `evt_${Date.now()}`,
-                      title: itemData.title,
-                      date: itemData.date,
-                      time: itemData.time,
-                      duration: itemData.duration,
-                      description: itemData.description,
-                      category: 'Voz',
-                    };
-                    setEvents((prev) => [newEvent, ...prev]);
-                    if (currentUser) {
-                      saveEventToFirestore(currentUser.uid, newEvent).catch(console.warn);
-                    }
-                    setActiveTab('calendario');
-                  }
-                  break;
-                case 'enviarMensajeWhatsApp':
-                case 'enviar_whatsapp':
-                  if (itemData) {
-                    const newWa: WhatsAppMessageItem = {
-                      id: tool.result.id || `wa_${Date.now()}`,
-                      recipient: itemData.recipient,
-                      phone: itemData.phone,
-                      message: itemData.message,
-                      timestamp: 'Ahora mismo',
-                      status: 'delivered',
-                    };
-                    setWhatsAppMessages((prev) => [newWa, ...prev]);
-                    if (currentUser) {
-                      saveMessageToFirestore(currentUser.uid, newWa).catch(console.warn);
-                    }
-                    setActiveTab('whatsapp');
-                  }
-                  break;
-                case 'enviarCorreo':
-                case 'enviar_correo':
-                  if (itemData) {
-                    const newEmail: EmailItem = {
-                      id: tool.result.id || `email_${Date.now()}`,
-                      to: itemData.to,
-                      subject: itemData.subject,
-                      body: itemData.body,
-                      date: 'Ahora mismo',
-                      status: 'sent',
-                    };
-                    setEmails((prev) => [newEmail, ...prev]);
-                    if (currentUser) {
-                      saveEmailToFirestore(currentUser.uid, newEmail).catch(console.warn);
-                    }
-                    setActiveTab('correos');
-                  }
-                  break;
-                case 'programarAlarmaORecordatorio':
-                case "programarAlarmaO'Recordatorio":
-                case 'programarAlarmaO_Recordatorio':
-                  if (itemData) {
-                    if (tool.result.type === 'alarm' || ('label' in itemData && 'time' in itemData && !('text' in itemData))) {
-                      const newAlarm: AlarmItem = {
-                        id: tool.result.id || `alarm_${Date.now()}`,
-                        time: itemData.time,
-                        label: itemData.label,
-                        enabled: true,
-                        days: ['Hoy'],
-                      };
-                      setAlarms((prev) => [newAlarm, ...prev]);
-                      if (currentUser) {
-                        saveAlarmToFirestore(currentUser.uid, newAlarm).catch(console.warn);
-                      }
-                      setActiveTab('alarmas');
-                    } else {
-                      const newReminder: ReminderItem = {
-                        id: tool.result.id || `rem_${Date.now()}`,
-                        text: itemData.text || itemData.label || 'Recordatorio',
-                        dueTime: itemData.dueTime || itemData.time || 'Hoy',
-                        completed: false,
-                        priority: itemData.priority || 'alta',
-                      };
-                      setReminders((prev) => [newReminder, ...prev]);
-                      if (currentUser) {
-                        saveReminderToFirestore(currentUser.uid, newReminder).catch(console.warn);
-                      }
-                      setActiveTab('recordatorios');
-                    }
-                  }
-                  break;
-                case 'configurar_alarma':
-                  if (itemData) {
-                    const newAlarm: AlarmItem = {
-                      id: tool.result.id || `alarm_${Date.now()}`,
-                      time: itemData.time,
-                      label: itemData.label,
-                      enabled: true,
-                      days: ['Hoy'],
-                    };
-                    setAlarms((prev) => [newAlarm, ...prev]);
-                    if (currentUser) {
-                      saveAlarmToFirestore(currentUser.uid, newAlarm).catch(console.warn);
-                    }
-                    setActiveTab('alarmas');
-                  }
-                  break;
-                case 'crear_recordatorio':
-                  if (itemData) {
-                    const newReminder: ReminderItem = {
-                      id: tool.result.id || `rem_${Date.now()}`,
-                      text: itemData.text,
-                      dueTime: itemData.dueTime,
-                      completed: false,
-                      priority: itemData.priority || 'media',
-                    };
-                    setReminders((prev) => [newReminder, ...prev]);
-                    if (currentUser) {
-                      saveReminderToFirestore(currentUser.uid, newReminder).catch(console.warn);
-                    }
-                    setActiveTab('recordatorios');
-                  }
-                  break;
-                case 'crear_nota':
-                  if (itemData) {
-                    const newNote: NoteItem = {
-                      id: tool.result.id || `note_${Date.now()}`,
-                      title: itemData.title,
-                      content: itemData.content,
-                      createdAt: 'Ahora mismo',
-                      color: '#FEF3C7',
-                    };
-                    setNotes((prev) => [newNote, ...prev]);
-                    if (currentUser) {
-                      saveNoteToFirestore(currentUser.uid, newNote).catch(console.warn);
-                    }
-                    setActiveTab('notas');
-                  }
-                  break;
-              }
+            if (call.name === 'setAlarm') {
+              const newAlarm: AlarmItem = {
+                id: `al-${Date.now()}`,
+                time: call.args.time || '08:00',
+                label: call.args.label || 'Alarma dictada por voz',
+                enabled: true,
+                days: call.args.days || ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
+              };
+              setAlarms((prev) => [newAlarm, ...prev]);
+              setActiveTab('alarmas');
+              if (currentUser) saveAlarmToFirestore(currentUser.uid, newAlarm).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'setAlarm',
+                parameters: call.args,
+                resultSummary: `Alarma a las ${newAlarm.time} activada`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
+            } else if (call.name === 'scheduleCalendarEvent') {
+              const newEvent: CalendarEventItem = {
+                id: `ev-${Date.now()}`,
+                title: call.args.title || 'Cita',
+                date: call.args.date || new Date().toISOString().slice(0, 10),
+                time: call.args.time || '10:00',
+                durationMinutes: call.args.durationMinutes || 30,
+                location: call.args.location || 'Oficina / Enlace',
+                category: call.args.category || 'trabajo',
+                syncedToGoogleCalendar: true,
+              };
+              setEvents((prev) => [newEvent, ...prev]);
+              setActiveTab('calendario');
+              if (currentUser) saveEventToFirestore(currentUser.uid, newEvent).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'scheduleCalendarEvent',
+                parameters: call.args,
+                resultSummary: `Cita "${newEvent.title}" para ${newEvent.date} a las ${newEvent.time}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
+            } else if (call.name === 'sendWhatsAppMessage') {
+              const newMsg: WhatsAppMessageItem = {
+                id: `wa-${Date.now()}`,
+                recipientName: call.args.recipientName || 'Contacto',
+                recipientPhone: call.args.recipientPhone || '+34 600 000 000',
+                message: call.args.message || '',
+                timestamp: 'Ahora',
+                status: 'borrador',
+              };
+              setWhatsAppMessages((prev) => [newMsg, ...prev]);
+              setActiveTab('whatsapp');
+              if (currentUser) saveWhatsAppToFirestore(currentUser.uid, newMsg).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'sendWhatsAppMessage',
+                parameters: call.args,
+                resultSummary: `WhatsApp para ${newMsg.recipientName}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
+            } else if (call.name === 'sendEmail') {
+              const newEmail: EmailItem = {
+                id: `em-${Date.now()}`,
+                to: call.args.to || '',
+                subject: call.args.subject || 'Sin asunto',
+                body: call.args.body || '',
+                timestamp: 'Ahora',
+                read: true,
+                type: 'borrador',
+              };
+              setEmails((prev) => [newEmail, ...prev]);
+              setActiveTab('correos');
+              if (currentUser) saveEmailToFirestore(currentUser.uid, newEmail).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'sendEmail',
+                parameters: call.args,
+                resultSummary: `Correo para ${newEmail.to}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
+            } else if (call.name === 'createReminder') {
+              const newRem: ReminderItem = {
+                id: `rem-${Date.now()}`,
+                text: call.args.text || 'Recordatorio',
+                dueDate: call.args.dueDate,
+                dueTime: call.args.dueTime,
+                completed: false,
+                priority: call.args.priority || 'media',
+              };
+              setReminders((prev) => [newRem, ...prev]);
+              setActiveTab('recordatorios');
+              if (currentUser) saveReminderToFirestore(currentUser.uid, newRem).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'createReminder',
+                parameters: call.args,
+                resultSummary: `Recordatorio: "${newRem.text}"`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
+            } else if (call.name === 'saveNote') {
+              const newNote: NoteItem = {
+                id: `nt-${Date.now()}`,
+                title: call.args.title || 'Nueva nota',
+                content: call.args.content || '',
+                updatedAt: 'Ahora',
+                tags: call.args.tags || ['Voz'],
+              };
+              setNotes((prev) => [newNote, ...prev]);
+              setActiveTab('notas');
+              if (currentUser) saveNoteToFirestore(currentUser.uid, newNote).catch(console.warn);
+              executedTools.push({
+                id: toolId,
+                toolName: 'saveNote',
+                parameters: call.args,
+                resultSummary: `Nota "${newNote.title}" guardada`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'ejecutado',
+              });
             }
-          });
+          }
         }
 
-        // Add assistant reply to history
-        chatHistoryRef.current.push({
-          role: 'assistant',
-          parts: [{ text: replyText }],
-        });
+        if (executedTools.length > 0) {
+          setRecentTools((prev) => [...executedTools, ...prev].slice(0, 8));
+          soundEffects.playSuccess();
+        }
 
-        // Set lastMessage state
-        setLastMessage({
-          id: `msg_${Date.now()}`,
-          role: 'assistant',
+        const replyText = data.reply || 'Acción completada con éxito.';
+        const assistantMsg: ChatMessage = {
+          id: `asst-${Date.now()}`,
+          sender: 'assistant',
           text: replyText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          toolInvocations: tools,
-        });
+          toolsUsed: executedTools,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
 
-        // Speak reply using speech synthesis (maximum 2 sentences, clear and concise)
-        speechService.speak(
-          replyText,
-          () => setAssistantState('speaking'),
-          () => setAssistantState('idle')
-        );
+        // Speak reply if not muted
+        if (!appSettings.muteSpeech) {
+          setAssistantState('speaking');
+          await speechService.speak(
+            replyText,
+            () => setAssistantState('speaking'),
+            () => setAssistantState('idle'),
+            () => setAssistantState('idle')
+          );
+        } else {
+          setAssistantState('idle');
+        }
       } catch (err: any) {
-        console.error('Error processing voice query:', err);
-        setErrorMessage(
-          err?.message || 'Hubo un inconveniente al comunicarse con el asistente. Intenta de nuevo.'
-        );
+        console.error('Error in voice interaction:', err);
         setAssistantState('idle');
+        const errorMsg: ChatMessage = {
+          id: `err-${Date.now()}`,
+          sender: 'assistant',
+          text: 'Lo siento, ocurrió un problema al procesar tu instrucción.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
       }
     },
-    [events.length, reminders, alarms, emails.length]
+    [currentUser, appSettings.muteSpeech]
   );
 
-  // Toggle speech recognition
-  const handleToggleListening = useCallback(() => {
+  // Toggle listening from VoiceOrb
+  const handleToggleListening = () => {
     if (assistantState === 'listening') {
       speechService.stopListening();
-      if (currentTranscript.trim()) {
-        processUserPrompt(currentTranscript);
-      } else {
-        setAssistantState('idle');
-      }
-      return;
-    }
-
-    if (assistantState === 'speaking') {
+      soundEffects.playListeningStop();
+      setAssistantState('idle');
+    } else if (assistantState === 'speaking') {
       speechService.stopSpeaking();
       setAssistantState('idle');
-      return;
-    }
+    } else {
+      soundEffects.playListeningStart();
+      setAssistantState('listening');
+      setCurrentTranscript('');
 
-    // Play tone and start microphone
-    soundEffects.playMicStart();
-    const started = speechService.startListening({
-      onStart: () => {
-        setAssistantState('listening');
-        setErrorMessage(null);
-      },
-      onResult: (transcript, isFinal) => {
-        setCurrentTranscript(transcript);
-        if (isFinal) {
-          speechService.stopListening();
-          processUserPrompt(transcript);
+      speechService.startListening(
+        (text, isFinal) => {
+          setCurrentTranscript(text);
+          if (isFinal) {
+            speechService.stopListening();
+            soundEffects.playListeningStop();
+            processUserPrompt(text);
+          }
+        },
+        (error) => {
+          console.warn('Speech recognition error:', error);
+          setAssistantState('idle');
+        },
+        () => {
+          setAssistantState((prev) => (prev === 'listening' ? 'idle' : prev));
         }
-      },
-      onError: (err) => {
-        setErrorMessage(err);
-        setAssistantState('idle');
-      },
-      onEnd: () => {
-        setAssistantState((prev) => (prev === 'listening' ? 'idle' : prev));
-      },
-    });
-
-    if (!started) {
-      setAssistantState('idle');
-    }
-  }, [assistantState, currentTranscript, processUserPrompt]);
-
-  // Handle Spacebar shortcut for speech
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA' ||
-        document.activeElement?.tagName === 'SELECT'
-      ) {
-        return;
-      }
-
-      if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        handleToggleListening();
-      } else if (e.code === 'Escape') {
-        speechService.stopListening();
-        speechService.stopSpeaking();
-        setAssistantState('idle');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleListening]);
-
-  // Replay voice button
-  const handleReplayVoice = (text: string) => {
-    speechService.speak(
-      text,
-      () => setAssistantState('speaking'),
-      () => setAssistantState('idle')
-    );
-  };
-
-  // Toggle mute
-  const handleToggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    speechService.setMuted(newMuted);
-    if (newMuted && assistantState === 'speaking') {
-      setAssistantState('idle');
-    }
-  };
-
-  // Stop current speaking
-  const handleStopSpeaking = () => {
-    speechService.stopSpeaking();
-    setAssistantState('idle');
-  };
-
-  // Text input submit
-  const handleTextSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!textInput.trim() || assistantState === 'thinking') return;
-    const text = textInput;
-    setTextInput('');
-    processUserPrompt(text);
-  };
-
-  // Entity controls
-  const handleToggleAlarm = (id: string) => {
-    setAlarms((prev) => {
-      const updated = prev.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a));
-      const target = updated.find((a) => a.id === id);
-      if (currentUser && target) {
-        saveAlarmToFirestore(currentUser.uid, target).catch(console.warn);
-      }
-      return updated;
-    });
-  };
-
-  const handleToggleReminder = (id: string) => {
-    setReminders((prev) => {
-      const updated = prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r));
-      const target = updated.find((r) => r.id === id);
-      if (currentUser && target) {
-        saveReminderToFirestore(currentUser.uid, target).catch(console.warn);
-      }
-      return updated;
-    });
-  };
-
-  const handleDeleteEvent = (id: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== id));
-    if (currentUser) {
-      deleteItemFromFirestore(currentUser.uid, 'events', id).catch(console.warn);
-    }
-  };
-
-  const handleDeleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-    if (currentUser) {
-      deleteItemFromFirestore(currentUser.uid, 'notes', id).catch(console.warn);
-    }
-  };
-
-  const handleDeleteReminder = (id: string) => {
-    setReminders((prev) => prev.filter((r) => r.id !== id));
-    if (currentUser) {
-      deleteItemFromFirestore(currentUser.uid, 'reminders', id).catch(console.warn);
-    }
-  };
-
-  // Reset demo data
-  const handleResetData = () => {
-    if (confirm('¿Deseas restaurar los datos iniciales de ejemplo?')) {
-      setEvents(initialCalendarEvents);
-      setWhatsAppMessages(initialWhatsAppMessages);
-      setEmails(initialEmails);
-      setAlarms(initialAlarms);
-      setReminders(initialReminders);
-      setNotes(initialNotes);
-      setLatestTools([]);
-      setLastMessage(null);
-      chatHistoryRef.current = [];
+      );
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900" id="voice-assistant-app">
-      {/* Top Application Header */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 px-4 py-2.5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-900 to-indigo-900 flex items-center justify-center text-white shadow-xs">
-              <Sparkles className="w-5 h-5 text-indigo-300" />
+    <div className="min-h-screen bg-slate-100 text-slate-900 pb-12 flex flex-col items-center">
+      {/* Top Header */}
+      <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 px-4 py-3">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+              <Mic className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <h1 className="text-sm font-black text-slate-900 tracking-tight leading-none">
                 Asistente de Voz Personal
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  Gemini Flash Tools
-                </span>
               </h1>
-              <p className="text-[11px] text-slate-500">
-                Gestión inteligente por voz con Firebase Cloud Firestore
-              </p>
+              <span className="text-[11px] font-medium text-slate-500">
+                Gemini 2.5 Flash • Control por Voz
+              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Firebase Auth & Sync Status Pill */}
+            {/* Google / Gmail Auth & Account Status */}
             {!isAuthLoading && (
               currentUser ? (
                 <div className="flex items-center gap-2 bg-slate-100/90 border border-slate-200/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-700">
-                  {currentUser.photoURL ? (
-                    <img
-                      src={currentUser.photoURL}
-                      alt={currentUser.displayName || 'Usuario'}
-                      className="w-5 h-5 rounded-full object-cover border border-slate-300"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
-                      {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
-                    </div>
-                  )}
-                  <span className="hidden sm:inline font-medium text-slate-800 max-w-[120px] truncate">
-                    {currentUser.displayName || currentUser.email}
-                  </span>
-                  <span
-                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200"
-                    title="Datos persistidos de forma segura en Firebase Firestore"
+                  <button
+                    type="button"
+                    id="btn-user-account-header"
+                    onClick={() => setAuthModalOpen(true)}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer text-left"
+                    title="Ver perfil de cuenta de Gmail y sincronización"
                   >
-                    <Cloud className="w-3 h-3 text-emerald-600" />
-                    <span className="hidden md:inline">Sincronizado</span>
-                  </span>
+                    {currentUser.photoURL ? (
+                      <img
+                        src={currentUser.photoURL}
+                        alt={currentUser.displayName || 'Usuario'}
+                        className="w-5 h-5 rounded-full object-cover border border-slate-300"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
+                        {(currentUser.displayName || currentUser.email || 'U')[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="hidden sm:inline font-medium text-slate-800 max-w-[120px] truncate">
+                      {currentUser.displayName || currentUser.email}
+                    </span>
+                    <span
+                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200"
+                      title="Datos persistidos de forma segura en Firebase Firestore"
+                    >
+                      <Cloud className="w-3 h-3 text-emerald-600" />
+                      <span className="hidden md:inline">Cloud</span>
+                    </span>
+                  </button>
                   <button
                     id="btn-sign-out"
                     onClick={handleSignOut}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer ml-1"
                     title="Cerrar sesión"
                   >
                     <LogOut className="w-3.5 h-3.5" />
@@ -677,128 +631,111 @@ export default function App() {
                 </div>
               ) : (
                 <button
-                  id="btn-google-sign-in"
-                  onClick={handleGoogleSignIn}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors cursor-pointer"
-                  title="Inicia sesión con Google para sincronizar tus datos en la nube con Firebase"
+                  id="btn-google-auth-header"
+                  onClick={() => setAuthModalOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs transition-colors cursor-pointer group"
+                  title="Inicia sesión o regístrate con tu cuenta Gmail"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Conectar Firebase</span>
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Gmail / Registro</span>
+                  <span className="sm:hidden">Gmail</span>
                 </button>
               )
             )}
 
+            {/* Install button */}
             <button
-              id="btn-install-apk-modal"
+              id="btn-install-header"
               onClick={() => setInstallModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
-              title="Descargar o instalar como APK en Android"
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200/70 cursor-pointer"
+              title="Instalar en Android / Móvil"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Instalar APK</span>
+              <Smartphone className="w-4 h-4" />
             </button>
 
+            {/* Audio Toggle */}
+            <button
+              id="btn-mute-toggle"
+              onClick={() => setAppSettings((p) => ({ ...p, muteSpeech: !p.muteSpeech }))}
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200/70 cursor-pointer"
+              title={appSettings.muteSpeech ? 'Activar voz' : 'Silenciar voz'}
+            >
+              {appSettings.muteSpeech ? (
+                <VolumeX className="w-4 h-4 text-rose-500" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-slate-600" />
+              )}
+            </button>
+
+            {/* Settings modal */}
             <button
               id="btn-settings-modal"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => setSettingsModalOpen(true)}
               className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200/70 cursor-pointer"
-              title="Ajustes de voz y reglas"
+              title="Configuración de la aplicación"
             >
               <Settings className="w-4 h-4" />
-            </button>
-            <button
-              id="btn-reset-demo"
-              onClick={handleResetData}
-              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200/70 cursor-pointer"
-              title="Restaurar datos de ejemplo"
-            >
-              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto pb-12">
-        {/* Core Voice Interaction Orb */}
-        <section className="pt-6 pb-2" aria-label="Control por voz">
+      {/* Main Container */}
+      <main className="w-full max-w-5xl px-3 sm:px-4 py-4 space-y-4">
+        {/* Voice Interaction Orb Section */}
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-4 flex flex-col items-center">
           <VoiceOrb
             state={assistantState}
             onToggleListening={handleToggleListening}
-            isListening={assistantState === 'listening'}
-            isSpeaking={assistantState === 'speaking'}
-            onStopSpeaking={handleStopSpeaking}
-            isMuted={isMuted}
-            onToggleMute={handleToggleMute}
+            disabled={assistantState === 'thinking'}
           />
-        </section>
 
-        {/* Live Transcript & Assistant Voice Output */}
-        <VoiceTranscript
-          currentTranscript={currentTranscript}
-          isListening={assistantState === 'listening'}
-          lastMessage={lastMessage}
-          onReplayVoice={handleReplayVoice}
-          isSpeaking={assistantState === 'speaking'}
-          errorMessage={errorMessage}
-        />
-
-        {/* Real-time Tool Invocations Notification */}
-        <ToolActivityFeed
-          latestTools={latestTools}
-          onSelectTab={(tab) => setActiveTab(tab)}
-        />
-
-        {/* Text Input Fallback Bar */}
-        <div className="max-w-2xl mx-auto px-4 my-3">
-          <form
-            onSubmit={handleTextSubmit}
-            className="flex items-center gap-2 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-1.5 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all"
-          >
-            <button
-              type="button"
-              id="btn-input-mic"
-              onClick={handleToggleListening}
-              className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
-                assistantState === 'listening'
-                  ? 'bg-emerald-500 text-white animate-pulse'
-                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-              }`}
-              title="Hablar por micrófono"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
-            <input
-              type="text"
-              id="voice-text-input"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="O escribe tu petición (ej. Envía un WhatsApp a Carlos o Agenda reunión mañana)..."
-              className="flex-1 text-xs sm:text-sm bg-transparent border-none text-slate-800 placeholder:text-slate-400 focus:outline-none"
-              disabled={assistantState === 'thinking'}
+          {/* Realtime transcript & conversation preview */}
+          <div className="w-full mt-2">
+            <VoiceTranscript
+              messages={messages}
+              currentTranscript={currentTranscript}
+              assistantState={assistantState}
             />
-            <button
-              type="submit"
-              id="btn-send-message"
-              disabled={!textInput.trim() || assistantState === 'thinking'}
-              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              title="Enviar comando"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+          </div>
+
+          {/* Activity Feed */}
+          {recentTools.length > 0 && (
+            <div className="w-full mt-3">
+              <ToolActivityFeed tools={recentTools} />
+            </div>
+          )}
         </div>
 
         {/* Quick Voice Prompt Suggestions */}
-        <QuickPrompts
-          onSelectPrompt={(text) => processUserPrompt(text)}
-          disabled={assistantState === 'thinking'}
-        />
+        {appSettings.showQuickPrompts && (
+          <QuickPrompts
+            onSelectPrompt={(text) => processUserPrompt(text)}
+            disabled={assistantState === 'thinking'}
+          />
+        )}
 
         {/* Daily Manager Dashboard & Entity Views */}
         <DashboardView
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={setActiveTab}
           events={events}
           whatsAppMessages={whatsAppMessages}
           emails={emails}
@@ -810,21 +747,62 @@ export default function App() {
           onDeleteEvent={handleDeleteEvent}
           onDeleteNote={handleDeleteNote}
           onDeleteReminder={handleDeleteReminder}
+          currentUser={currentUser}
+          onOpenAuth={() => setAuthModalOpen(true)}
+          onSignOut={handleSignOut}
+          settings={appSettings}
+          onUpdateSettings={(newSt) => setAppSettings((p) => ({ ...p, ...newSt }))}
+          onOpenSettingsModal={() => setSettingsModalOpen(true)}
+          onExportData={handleExportData}
+          onResetData={handleResetData}
+          isFirebaseConnected={isFirebaseConnected}
         />
       </main>
 
-      {/* Settings Modal */}
-      <AudioSettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+      {/* Gmail Sign In & Registration Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       />
 
-      {/* Android APK & WebAPK Install Modal */}
+      {/* Classic Application Settings Modal */}
+      <AppSettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        settings={appSettings}
+        onUpdateSettings={(newSt) => setAppSettings((p) => ({ ...p, ...newSt }))}
+        currentUser={currentUser}
+        onOpenAuth={() => {
+          setSettingsModalOpen(false);
+          setAuthModalOpen(true);
+        }}
+        onSignOut={handleSignOut}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+        onResetData={handleResetData}
+      />
+
+      {/* Advanced Audio Settings Modal */}
+      <AudioSettingsModal
+        isOpen={audioSettingsOpen}
+        onClose={() => setAudioSettingsOpen(false)}
+        speechRate={appSettings.speechRate}
+        onRateChange={(rate) => {
+          setAppSettings((p) => ({ ...p, speechRate: rate }));
+          speechService.setRate(rate);
+        }}
+        isMuted={appSettings.muteSpeech}
+        onToggleMute={() => setAppSettings((p) => ({ ...p, muteSpeech: !p.muteSpeech }))}
+      />
+
+      {/* Install App Modal */}
       <InstallAppModal
         isOpen={installModalOpen}
         onClose={() => setInstallModalOpen(false)}
         deferredPrompt={deferredPrompt}
-        onTriggerInstall={handleTriggerInstall}
+        onInstallAccepted={() => setDeferredPrompt(null)}
       />
     </div>
   );

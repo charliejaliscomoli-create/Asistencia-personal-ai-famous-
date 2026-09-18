@@ -1,50 +1,107 @@
-// Speech Recognition & Speech Synthesis Service
-
-export interface SpeechRecognitionHandlers {
-  onResult: (transcript: string, isFinal: boolean) => void;
-  onError: (error: string) => void;
-  onStart: () => void;
-  onEnd: () => void;
-}
-
-class SpeechManager {
+// Speech recognition and text-to-speech synthesis service
+class SpeechService {
   private recognition: any = null;
-  private isListening = false;
-  private isSpeaking = false;
-  private selectedVoice: SpeechSynthesisVoice | null = null;
-  private speechRate = 1.05;
-  private speechPitch = 1.0;
-  private isMuted = false;
+  private isListening: boolean = false;
+  private speechRate: number = 1.05;
+  private speechPitch: number = 1.0;
+  private preferredVoiceName: string = '';
+  private onResultCallback: ((text: string, isFinal: boolean) => void) | null = null;
+  private onErrorCallback: ((err: string) => void) | null = null;
+  private onEndCallback: (() => void) | null = null;
 
   constructor() {
-    this.initVoices();
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        this.initVoices();
+    this.initRecognition();
+  }
+
+  private initRecognition() {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      this.recognition = new SpeechRecognition();
+      this.recognition.continuous = false;
+      this.recognition.interimResults = true;
+      this.recognition.lang = 'es-ES';
+
+      this.recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const text = finalTranscript || interimTranscript;
+        const isFinal = Boolean(finalTranscript);
+        if (this.onResultCallback && text) {
+          this.onResultCallback(text, isFinal);
+        }
+      };
+
+      this.recognition.onerror = (event: any) => {
+        this.isListening = false;
+        if (this.onErrorCallback) {
+          this.onErrorCallback(event.error || 'Error de reconocimiento de voz');
+        }
+      };
+
+      this.recognition.onend = () => {
+        this.isListening = false;
+        if (this.onEndCallback) {
+          this.onEndCallback();
+        }
       };
     }
   }
 
-  private initVoices() {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const voices = window.speechSynthesis.getVoices();
-    // Prefer high quality Spanish voices
-    const spanishVoice = voices.find(
-      (v) => v.lang.startsWith('es') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium'))
-    ) || voices.find((v) => v.lang.startsWith('es')) || voices[0];
+  public isSupported(): boolean {
+    return Boolean(
+      typeof window !== 'undefined' &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+    );
+  }
 
-    if (spanishVoice) {
-      this.selectedVoice = spanishVoice;
+  public startListening(
+    onResult: (text: string, isFinal: boolean) => void,
+    onError?: (err: string) => void,
+    onEnd?: () => void
+  ) {
+    if (!this.recognition) {
+      this.initRecognition();
+    }
+    if (!this.recognition) {
+      onError?.('El reconocimiento de voz no está soportado en este navegador.');
+      return;
+    }
+
+    this.onResultCallback = onResult;
+    this.onErrorCallback = onError || null;
+    this.onEndCallback = onEnd || null;
+
+    try {
+      this.isListening = true;
+      this.recognition.start();
+    } catch (e: any) {
+      this.isListening = false;
+      // Already started
+      if (e.name !== 'InvalidStateError') {
+        onError?.(e.message || 'Error al activar el micrófono');
+      }
     }
   }
 
-  public getVoices(): SpeechSynthesisVoice[] {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
-    return window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('es') || v.lang.startsWith('en'));
-  }
-
-  public setVoice(voice: SpeechSynthesisVoice) {
-    this.selectedVoice = voice;
+  public stopListening() {
+    if (this.recognition && this.isListening) {
+      try {
+        this.recognition.stop();
+      } catch (e) {}
+    }
+    this.isListening = false;
   }
 
   public setRate(rate: number) {
@@ -52,173 +109,87 @@ class SpeechManager {
   }
 
   public setPitch(pitch: number) {
-    this.speechPitch = Math.max(0.5, Math.min(1.5, pitch));
+    this.speechPitch = Math.max(0.5, Math.min(1.8, pitch));
   }
 
-  public setMuted(muted: boolean) {
-    this.isMuted = muted;
-    if (muted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      this.isSpeaking = false;
-    }
+  public setPreferredVoice(voiceName: string) {
+    this.preferredVoiceName = voiceName;
   }
 
-  public getMuted(): boolean {
-    return this.isMuted;
+  public getVoices(): SpeechSynthesisVoice[] {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
+    return window.speechSynthesis.getVoices();
   }
 
-  public isSpeechRecognitionSupported(): boolean {
-    if (typeof window === 'undefined') return false;
-    return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-  }
-
-  public startListening(handlers: SpeechRecognitionHandlers): boolean {
-    if (this.isListening) {
-      this.stopListening();
-    }
-
-    // Stop speaking if currently speaking
-    this.stopSpeaking();
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      handlers.onError('El reconocimiento de voz no está soportado en este navegador. Puedes escribir tu petición.');
-      return false;
-    }
-
-    try {
-      this.recognition = new SpeechRecognition();
-      this.recognition.lang = 'es-ES';
-      this.recognition.continuous = false;
-      this.recognition.interimResults = true;
-      this.recognition.maxAlternatives = 1;
-
-      this.recognition.onstart = () => {
-        this.isListening = true;
-        handlers.onStart();
-      };
-
-      this.recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        const currentText = finalTranscript || interimTranscript;
-        handlers.onResult(currentText, Boolean(finalTranscript));
-      };
-
-      this.recognition.onerror = (event: any) => {
-        console.warn('Speech recognition event error:', event.error);
-        this.isListening = false;
-        if (event.error === 'no-speech') {
-          handlers.onError('No se detectó voz. Por favor habla de nuevo.');
-        } else if (event.error === 'not-allowed') {
-          handlers.onError('Permiso de micrófono denegado. Actívalo en tu navegador.');
-        } else {
-          handlers.onError(`Error de audio: ${event.error}`);
-        }
-      };
-
-      this.recognition.onend = () => {
-        this.isListening = false;
-        handlers.onEnd();
-      };
-
-      this.recognition.start();
-      return true;
-    } catch (err: any) {
-      console.error('Failed to start speech recognition:', err);
-      handlers.onError('No se pudo inicializar el micrófono.');
-      this.isListening = false;
-      return false;
-    }
-  }
-
-  public stopListening() {
-    if (this.recognition) {
-      try {
-        this.recognition.stop();
-      } catch {
-        // ignore
+  public speak(
+    text: string,
+    onStart?: () => void,
+    onEnd?: () => void,
+    onError?: () => void
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        onEnd?.();
+        resolve();
+        return;
       }
-      this.recognition = null;
-    }
-    this.isListening = false;
-  }
 
-  public speak(text: string, onStart?: () => void, onEnd?: () => void) {
-    if (this.isMuted || typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      onEnd?.();
-      return;
-    }
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+      if (!text || text.trim() === '') {
+        onEnd?.();
+        resolve();
+        return;
+      }
 
-    // Clean text of markdown formatting for natural voice speaking
-    const cleanText = text
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-      .replace(/`{1,3}.*?`{1,3}/g, '')
-      .replace(/#+\s/g, '')
-      .replace(/\n+/g, ' ')
-      .trim();
+      // Clean speech text: remove markdown asterisks, URLs, JSON
+      const cleanText = text
+        .replace(/[*_#`~]/g, '')
+        .replace(/https?:\/\/\S+/g, 'enlace')
+        .trim();
 
-    if (!cleanText) {
-      onEnd?.();
-      return;
-    }
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'es-ES';
+      utterance.rate = this.speechRate;
+      utterance.pitch = this.speechPitch;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'es-ES';
-    if (this.selectedVoice) {
-      utterance.voice = this.selectedVoice;
-    }
-    utterance.rate = this.speechRate;
-    utterance.pitch = this.speechPitch;
+      const voices = window.speechSynthesis.getVoices();
+      if (this.preferredVoiceName) {
+        const found = voices.find((v) => v.name === this.preferredVoiceName);
+        if (found) utterance.voice = found;
+      } else {
+        // Find best Spanish voice
+        const esVoice =
+          voices.find((v) => v.lang === 'es-ES' && v.name.includes('Google')) ||
+          voices.find((v) => v.lang.startsWith('es') && !v.name.includes('Compact')) ||
+          voices.find((v) => v.lang.startsWith('es'));
+        if (esVoice) utterance.voice = esVoice;
+      }
 
-    utterance.onstart = () => {
-      this.isSpeaking = true;
-      onStart?.();
-    };
+      utterance.onstart = () => {
+        onStart?.();
+      };
 
-    utterance.onend = () => {
-      this.isSpeaking = false;
-      onEnd?.();
-    };
+      utterance.onend = () => {
+        onEnd?.();
+        resolve();
+      };
 
-    utterance.onerror = (e) => {
-      console.warn('Speech synthesis error:', e);
-      this.isSpeaking = false;
-      onEnd?.();
-    };
+      utterance.onerror = () => {
+        onError?.();
+        resolve();
+      };
 
-    window.speechSynthesis.speak(utterance);
+      window.speechSynthesis.speak(utterance);
+    });
   }
 
   public stopSpeaking() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
-    this.isSpeaking = false;
-  }
-
-  public getSpeaking(): boolean {
-    return this.isSpeaking;
-  }
-
-  public getListening(): boolean {
-    return this.isListening;
   }
 }
 
-export const speechService = new SpeechManager();
+export const speechService = new SpeechService();

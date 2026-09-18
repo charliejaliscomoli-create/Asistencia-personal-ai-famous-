@@ -1,8 +1,7 @@
-node_modules/
-build/
-dist/
-coverage/
+node_modules
+dist
+dist-ssr
+*.local
+.env
 .DS_Store
-*.log
-.env*
-!.env.example
+android/app/build

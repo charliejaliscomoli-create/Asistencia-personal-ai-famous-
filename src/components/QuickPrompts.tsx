@@ -1,76 +1,68 @@
 import React from 'react';
-import { MessageSquare, Calendar, Bell, Clock, StickyNote, Mail, HelpCircle } from 'lucide-react';
+import { Calendar, Clock, Bell, StickyNote, MessageCircle, Mail } from 'lucide-react';
 
 interface QuickPromptsProps {
   onSelectPrompt: (promptText: string) => void;
-  disabled: boolean;
+  disabled?: boolean;
 }
 
-export const QuickPrompts: React.FC<QuickPromptsProps> = ({ onSelectPrompt, disabled }) => {
-  const suggestions = [
-    {
-      label: 'WhatsApp a Laura',
-      text: 'Envía un WhatsApp a Laura diciendo que llego en 10 minutos',
-      icon: MessageSquare,
-      color: 'hover:border-emerald-300 hover:text-emerald-700',
-    },
-    {
-      label: 'Agendar Reunión',
-      text: 'Agenda una reunión con el equipo mañana a las 3 PM',
-      icon: Calendar,
-      color: 'hover:border-blue-300 hover:text-blue-700',
-    },
-    {
-      label: 'Poner Alarma',
-      text: 'Pon una alarma a las 06:30 AM para despertar',
-      icon: Clock,
-      color: 'hover:border-amber-300 hover:text-amber-700',
-    },
-    {
-      label: 'Recordatorio',
-      text: 'Recuérdame pagar el internet hoy a las 8 de la noche',
-      icon: Bell,
-      color: 'hover:border-rose-300 hover:text-rose-700',
-    },
-    {
-      label: 'Guardar Nota',
-      text: 'Anota una idea: revisar el presupuesto trimestral del proyecto',
-      icon: StickyNote,
-      color: 'hover:border-yellow-300 hover:text-yellow-700',
-    },
-    {
-      label: 'Enviar Correo',
-      text: 'Manda un correo a Carlos sobre el presupuesto diciendo que está aprobado',
-      icon: Mail,
-      color: 'hover:border-purple-300 hover:text-purple-700',
-    },
-    {
-      label: 'Faltan parámetros (Prueba Regla 3)',
-      text: 'Envía un WhatsApp',
-      icon: HelpCircle,
-      color: 'hover:border-slate-400 hover:text-slate-800',
-    },
-  ];
+const PROMPTS = [
+  {
+    label: 'Alarma 7:00 am',
+    text: 'Pon una alarma mañana a las 7:00 am con etiqueta Rutina matutina',
+    icon: Clock,
+  },
+  {
+    label: 'Cita médica',
+    text: 'Agenda una cita con el dentista para mañana a las 11:00 am',
+    icon: Calendar,
+  },
+  {
+    label: 'Recordatorio compras',
+    text: 'Recuérdame comprar café y frutas hoy a las 6:00 pm',
+    icon: Bell,
+  },
+  {
+    label: 'Guardar nota',
+    text: 'Guarda una nota con el título Proyecto Web y el contenido: revisar componentes y API',
+    icon: StickyNote,
+  },
+  {
+    label: 'WhatsApp a Carlos',
+    text: 'Envía un mensaje de WhatsApp a Carlos diciendo que ya tengo listos los documentos',
+    icon: MessageCircle,
+  },
+  {
+    label: 'Enviar correo',
+    text: 'Envía un correo a soporte@proveedor.com con el asunto Estado del servidor y confirmando entrega',
+    icon: Mail,
+  },
+];
 
+export const QuickPrompts: React.FC<QuickPromptsProps> = ({
+  onSelectPrompt,
+  disabled = false,
+}) => {
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 my-2" id="quick-prompts-container">
-      <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-        <span>Comandos de voz rápidos de prueba:</span>
+    <div className="w-full space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Acciones Rápidas
+        </span>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {suggestions.map((item, idx) => {
-          const IconComponent = item.icon;
+      <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none no-scrollbar">
+        {PROMPTS.map((p, idx) => {
+          const Icon = p.icon;
           return (
             <button
               key={idx}
-              id={`quick-prompt-${idx}`}
+              type="button"
               disabled={disabled}
-              onClick={() => onSelectPrompt(item.text)}
-              className={`text-xs px-3 py-1.5 rounded-full bg-white border border-slate-200/90 text-slate-600 transition-all duration-150 flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${item.color}`}
-              title={item.text}
+              onClick={() => onSelectPrompt(p.text)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium border border-slate-200/80 shadow-2xs shrink-0 whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <IconComponent className="w-3.5 h-3.5" />
-              <span>{item.label}</span>
+              <Icon className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{p.label}</span>
             </button>
           );
         })}

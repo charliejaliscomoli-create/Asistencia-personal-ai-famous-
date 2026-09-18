@@ -1,18 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg512" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0F172A" />
-      <stop offset="100%" stop-color="#312E81" />
-    </linearGradient>
-    <linearGradient id="glow512" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#818CF8" />
-      <stop offset="100%" stop-color="#4F46E5" />
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg512)" />
-  <circle cx="256" cy="256" r="130" fill="url(#glow512)" opacity="0.3" />
-  <circle cx="256" cy="256" r="90" fill="url(#glow512)" />
-  <!-- Microphone / Wave Icon -->
-  <path d="M256 170 C242 170 230 182 230 196 L230 250 C230 264 242 276 256 276 C270 276 282 264 282 250 L282 196 C282 182 270 170 256 170 Z" fill="#FFFFFF" />
-  <path d="M210 236 C210 265 230 288 256 288 C282 288 302 265 302 236 M256 288 L256 326 M230 326 L282 326" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <rect width="512" height="512" rx="112" fill="url(#bg512)"/>
+  <circle cx="256" cy="256" r="165" fill="white" fill-opacity="0.15"/>
+  <circle cx="256" cy="256" r="115" fill="white" fill-opacity="0.25"/>
+  <!-- Microphone Icon -->
+  <path d="M256 160c-23.5 0-42.7 19.2-42.7 42.7v64c0 23.5 19.2 42.7 42.7 42.7s42.7-19.2 42.7-42.7v-64c0-23.5-19.2-42.7-42.7-42.7zm-69.3 106.7c0 38.3 31 69.3 69.3 69.3s69.3-31 69.3-69.3h-21.3c0 26.5-21.5 48-48 48s-48-21.5-48-48h-21.3zm58.7 80v37.3h21.3v-37.3h-21.3z" fill="#ffffff"/>
 </svg>

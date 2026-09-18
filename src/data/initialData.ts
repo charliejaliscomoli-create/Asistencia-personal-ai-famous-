@@ -1,119 +1,116 @@
-import { EmailItem, CalendarEventItem, NoteItem, WhatsAppMessageItem, AlarmItem, ReminderItem } from '../types';
+import {
+  CalendarEventItem,
+  WhatsAppMessageItem,
+  EmailItem,
+  AlarmItem,
+  ReminderItem,
+  NoteItem,
+} from '../types';
+
+export const initialEvents: CalendarEventItem[] = [
+  {
+    id: 'ev-1',
+    title: 'Reunión de Estrategia Semanal',
+    date: new Date().toISOString().slice(0, 10),
+    time: '10:00',
+    durationMinutes: 45,
+    location: 'Google Meet',
+    category: 'trabajo',
+    syncedToGoogleCalendar: true,
+  },
+  {
+    id: 'ev-2',
+    title: 'Consulta Médica de Control',
+    date: new Date().toISOString().slice(0, 10),
+    time: '16:30',
+    durationMinutes: 30,
+    location: 'Centro Médico Sur',
+    category: 'salud',
+    syncedToGoogleCalendar: true,
+  },
+];
+
+export const initialWhatsApp: WhatsAppMessageItem[] = [
+  {
+    id: 'wa-1',
+    recipientName: 'Carlos Gómez',
+    recipientPhone: '+34 612 345 678',
+    message: '¡Hola Carlos! Te confirmo que revisé la propuesta y avanzamos mañana.',
+    timestamp: 'Hoy, 09:15',
+    status: 'enviado',
+  },
+  {
+    id: 'wa-2',
+    recipientName: 'Equipo de Proyecto',
+    recipientPhone: '+34 699 000 111',
+    message: 'Recuerden enviar sus reportes antes de las 18:00.',
+    timestamp: 'Hoy, 11:30',
+    status: 'borrador',
+  },
+];
 
 export const initialEmails: EmailItem[] = [
   {
-    id: 'email_1',
-    to: 'tu@correo.com',
-    from: 'claudia.lopez@empresa.com',
-    subject: 'Avance del diseño de producto',
-    body: 'Hola, te comparto el enlace a los bocetos aprobados. Quedo atenta a tus comentarios.',
-    date: 'Hoy, 09:30 AM',
-    status: 'received',
+    id: 'em-1',
+    to: 'ana.martinez@empresa.com',
+    subject: 'Resumen Ejecutivo y Próximos Pasos',
+    body: 'Hola Ana, te adjunto el resumen acordado en la sesión matutina para tu revisión.',
+    timestamp: 'Hoy, 08:45',
+    read: true,
+    type: 'enviado',
   },
   {
-    id: 'email_2',
-    to: 'soporte@banco.com',
-    from: 'tu@correo.com',
-    subject: 'Solicitud de estado de cuenta',
-    body: 'Buen día, requiero el comprobante fiscal del mes de agosto. Saludos cordiales.',
-    date: 'Ayer, 04:15 PM',
-    status: 'sent',
-  },
-];
-
-export const initialCalendarEvents: CalendarEventItem[] = [
-  {
-    id: 'evt_1',
-    title: 'Revisión semanal de proyectos',
-    date: new Date().toISOString().split('T')[0],
-    time: '10:00 AM',
-    duration: '45 min',
-    description: 'Sincronización con el equipo de ingeniería y diseño.',
-    category: 'Trabajo',
-  },
-  {
-    id: 'evt_2',
-    title: 'Consulta médica de rutina',
-    date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    time: '04:30 PM',
-    duration: '30 min',
-    description: 'Clínica San José, Consultorio 302.',
-    category: 'Salud',
-  },
-];
-
-export const initialNotes: NoteItem[] = [
-  {
-    id: 'note_1',
-    title: 'Ideas para el fin de semana',
-    content: 'Comprar frutas en el mercado orgánico, preparar cena italiana y salir a caminar al parque.',
-    createdAt: 'Hoy, 08:10 AM',
-    color: '#FEF3C7',
-  },
-  {
-    id: 'note_2',
-    title: 'Recomendaciones de libros',
-    content: 'Hábitos Atómicos de James Clear, y Pensar rápido, pensar despacio de Daniel Kahneman.',
-    createdAt: 'Ayer',
-    color: '#E0E7FF',
-  },
-];
-
-export const initialWhatsAppMessages: WhatsAppMessageItem[] = [
-  {
-    id: 'wa_1',
-    recipient: 'Carlos Méndez',
-    phone: '+52 55 1234 5678',
-    message: 'Hola Carlos, confirmo nuestra reunión de mañana a las 3 PM.',
-    timestamp: '11:20 AM',
-    status: 'delivered',
-  },
-  {
-    id: 'wa_2',
-    recipient: 'Mamá',
-    message: 'Ya llegué a casa, todo bien por aquí. Te llamo al rato.',
-    timestamp: 'Ayer',
-    status: 'delivered',
+    id: 'em-2',
+    to: 'soporte@proveedor.com',
+    subject: 'Confirmación de Licencias Anuales',
+    body: 'Estimado equipo, solicitamos la renovación formal de los accesos cloud.',
+    timestamp: 'Ayer, 17:20',
+    read: false,
+    type: 'recibido',
   },
 ];
 
 export const initialAlarms: AlarmItem[] = [
   {
-    id: 'alarm_1',
-    time: '07:00 AM',
-    label: 'Despertador matutino',
+    id: 'al-1',
+    time: '07:00',
+    label: 'Despertar y rutina matutina',
     enabled: true,
-    days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
+    days: ['L', 'M', 'X', 'J', 'V'],
   },
   {
-    id: 'alarm_2',
-    time: '08:30 PM',
-    label: 'Lectura nocturna',
-    enabled: false,
-    days: ['Todos los días'],
+    id: 'al-2',
+    time: '14:00',
+    label: 'Almuerzo y descanso breve',
+    enabled: true,
+    days: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
   },
 ];
 
 export const initialReminders: ReminderItem[] = [
   {
-    id: 'rem_1',
-    text: 'Pagar servicio de luz e internet',
-    dueTime: 'Hoy, 06:00 PM',
+    id: 'rem-1',
+    text: 'Enviar factura mensual de servicios cloud',
+    dueTime: '12:00',
+    dueDate: new Date().toISOString().slice(0, 10),
     completed: false,
     priority: 'alta',
   },
   {
-    id: 'rem_2',
-    text: 'Comprar café tostado en grano',
-    dueTime: 'Mañana, 12:00 PM',
-    completed: false,
-    priority: 'media',
-  },
-  {
-    id: 'rem_3',
-    text: 'Enviar reporte mensual de métricas',
-    dueTime: 'Viernes',
+    id: 'rem-2',
+    text: 'Comprar cartucho de impresora y papel bond',
+    dueDate: new Date().toISOString().slice(0, 10),
     completed: true,
     priority: 'baja',
+  },
+];
+
+export const initialNotes: NoteItem[] = [
+  {
+    id: 'nt-1',
+    title: 'Ideas para optimización del flujo móvil',
+    content: '1. Integrar comandos de voz directos en Android.\n2. Notificaciones push con respuestas rápidas.\n3. Modo sin conexión para notas rápidas.',
+    updatedAt: 'Hoy, 10:20',
+    tags: ['Ideas', 'App', 'Voz'],
   },
 ];

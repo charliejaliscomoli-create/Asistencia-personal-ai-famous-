@@ -2,112 +2,251 @@
   "entities": {
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Perfil del usuario registrado en el asistente.",
+      "description": "Perfil básico del usuario autenticado",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "maxLength": 128 },
-        "displayName": { "type": "string", "maxLength": 128 },
-        "email": { "type": "string", "maxLength": 256 },
-        "photoURL": { "type": "string", "maxLength": 1024 },
-        "createdAt": { "type": "string", "maxLength": 64 }
+        "id": {
+          "type": "string",
+          "description": "ID de usuario correspondiente a request.auth.uid"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Correo electrónico del usuario"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Nombre para mostrar del usuario"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Fecha de creación del perfil"
+        }
       },
-      "required": ["userId", "email"]
+      "required": ["id", "email"]
     },
     "CalendarEvent": {
       "title": "CalendarEvent",
-      "description": "Cita o evento en el calendario del usuario.",
+      "description": "Evento de calendario agendado por el asistente o el usuario",
       "type": "object",
       "properties": {
-        "title": { "type": "string", "maxLength": 256 },
-        "date": { "type": "string", "maxLength": 32 },
-        "time": { "type": "string", "maxLength": 32 },
-        "duration": { "type": "string", "maxLength": 32 },
-        "description": { "type": "string", "maxLength": 1024 },
-        "category": { "type": "string", "maxLength": 64 },
-        "userId": { "type": "string", "maxLength": 128 },
-        "createdAt": { "type": "string", "maxLength": 64 }
+        "id": {
+          "type": "string",
+          "description": "Identificador único del evento"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Título o asunto de la cita"
+        },
+        "date": {
+          "type": "string",
+          "description": "Fecha en formato YYYY-MM-DD"
+        },
+        "time": {
+          "type": "string",
+          "description": "Hora en formato HH:mm"
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "Duración en minutos"
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Ubicación opcional del evento"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["trabajo", "personal", "salud", "reunión"],
+          "description": "Categoría del evento"
+        },
+        "syncedToGoogleCalendar": {
+          "type": "boolean",
+          "description": "Indica si se sincronizó con Google Calendar"
+        }
       },
-      "required": ["title", "date", "time", "userId"]
+      "required": ["id", "title", "date", "time"]
     },
     "Alarm": {
       "title": "Alarm",
-      "description": "Alarma de reloj configurada por voz o manualmente.",
+      "description": "Alarma programada por voz o manualmente",
       "type": "object",
       "properties": {
-        "time": { "type": "string", "maxLength": 16 },
-        "label": { "type": "string", "maxLength": 128 },
-        "enabled": { "type": "boolean" },
-        "days": { "type": "array" },
-        "userId": { "type": "string", "maxLength": 128 },
-        "createdAt": { "type": "string", "maxLength": 64 }
+        "id": {
+          "type": "string",
+          "description": "Identificador único de la alarma"
+        },
+        "time": {
+          "type": "string",
+          "description": "Hora de la alarma en formato HH:mm"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Etiqueta descriptiva"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Estado de activación"
+        },
+        "days": {
+          "type": "array",
+          "description": "Días de la semana en los que suena"
+        }
       },
-      "required": ["time", "label", "enabled", "userId"]
+      "required": ["id", "time", "label", "enabled"]
     },
     "Reminder": {
       "title": "Reminder",
-      "description": "Recordatorio o tarea pendiente con hora.",
+      "description": "Recordatorio creado por el asistente",
       "type": "object",
       "properties": {
-        "text": { "type": "string", "maxLength": 512 },
-        "dueTime": { "type": "string", "maxLength": 64 },
-        "completed": { "type": "boolean" },
-        "priority": { "type": "string", "enum": ["baja", "media", "alta"] },
-        "userId": { "type": "string", "maxLength": 128 },
-        "createdAt": { "type": "string", "maxLength": 64 }
+        "id": {
+          "type": "string",
+          "description": "Identificador del recordatorio"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Texto del recordatorio"
+        },
+        "dueTime": {
+          "type": "string",
+          "description": "Hora límite opcional"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Fecha límite opcional"
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Estado de completado"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["alta", "media", "baja"],
+          "description": "Nivel de prioridad"
+        }
       },
-      "required": ["text", "dueTime", "completed", "userId"]
+      "required": ["id", "text", "completed"]
     },
     "Note": {
       "title": "Note",
-      "description": "Nota personal rápida del usuario.",
+      "description": "Nota dictada o escrita",
       "type": "object",
       "properties": {
-        "title": { "type": "string", "maxLength": 256 },
-        "content": { "type": "string", "maxLength": 4096 },
-        "color": { "type": "string", "maxLength": 32 },
-        "createdAt": { "type": "string", "maxLength": 64 },
-        "userId": { "type": "string", "maxLength": 128 }
+        "id": {
+          "type": "string",
+          "description": "Identificador de la nota"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Título de la nota"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Contenido de la nota"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Fecha y hora de actualización"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Etiquetas de categorización"
+        }
       },
-      "required": ["title", "content", "userId"]
+      "required": ["id", "title", "content"]
     },
     "WhatsAppMessage": {
       "title": "WhatsAppMessage",
-      "description": "Registro de mensaje enviado a través de WhatsApp.",
+      "description": "Mensaje dictado para WhatsApp",
       "type": "object",
       "properties": {
-        "recipient": { "type": "string", "maxLength": 128 },
-        "phone": { "type": "string", "maxLength": 64 },
-        "message": { "type": "string", "maxLength": 2048 },
-        "timestamp": { "type": "string", "maxLength": 64 },
-        "status": { "type": "string", "enum": ["sent", "delivered"] },
-        "userId": { "type": "string", "maxLength": 128 }
+        "id": {
+          "type": "string",
+          "description": "Identificador del mensaje"
+        },
+        "recipientName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Nombre del destinatario"
+        },
+        "recipientPhone": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Teléfono del destinatario"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Cuerpo del mensaje"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Marca de tiempo"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["borrador", "enviado"],
+          "description": "Estado de envío"
+        }
       },
-      "required": ["recipient", "message", "userId"]
+      "required": ["id", "recipientName", "message", "status"]
     },
-    "Email": {
-      "title": "Email",
-      "description": "Registro de correo electrónico gestionado por el asistente.",
+    "EmailMessage": {
+      "title": "EmailMessage",
+      "description": "Borrador o registro de correo electrónico",
       "type": "object",
       "properties": {
-        "to": { "type": "string", "maxLength": 256 },
-        "from": { "type": "string", "maxLength": 256 },
-        "subject": { "type": "string", "maxLength": 256 },
-        "body": { "type": "string", "maxLength": 4096 },
-        "date": { "type": "string", "maxLength": 64 },
-        "status": { "type": "string", "enum": ["sent", "received", "draft"] },
-        "userId": { "type": "string", "maxLength": 128 }
+        "id": {
+          "type": "string",
+          "description": "Identificador del correo"
+        },
+        "to": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Destinatario del correo"
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Asunto del correo"
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Cuerpo del correo"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Marca de tiempo"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Estado de lectura"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["recibido", "borrador", "enviado"],
+          "description": "Tipo de correo"
+        }
       },
-      "required": ["to", "subject", "body", "userId"]
+      "required": ["id", "to", "subject", "body", "type"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Perfil del usuario autenticado"
+      "description": "Perfil privado de cada usuario"
     },
     "/users/{userId}/events/{eventId}": {
       "schema": "CalendarEvent",
-      "description": "Eventos de calendario pertenecientes al usuario"
+      "description": "Citas de calendario pertenecientes al usuario"
     },
     "/users/{userId}/alarms/{alarmId}": {
       "schema": "Alarm",
@@ -119,15 +258,15 @@
     },
     "/users/{userId}/notes/{noteId}": {
       "schema": "Note",
-      "description": "Notas pertenecientes al usuario"
+      "description": "Notas dictadas y almacenadas por el usuario"
     },
-    "/users/{userId}/messages/{messageId}": {
+    "/users/{userId}/whatsapp/{messageId}": {
       "schema": "WhatsAppMessage",
-      "description": "Mensajes de WhatsApp pertenecientes al usuario"
+      "description": "Mensajes preparados de WhatsApp del usuario"
     },
     "/users/{userId}/emails/{emailId}": {
-      "schema": "Email",
-      "description": "Correos electrónicos pertenecientes al usuario"
+      "schema": "EmailMessage",
+      "description": "Correos y borradores del usuario"
     }
   }
 }

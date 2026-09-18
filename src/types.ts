@@ -1,38 +1,33 @@
-export interface EmailItem {
-  id: string;
-  to: string;
-  from?: string;
-  subject: string;
-  body: string;
-  date: string;
-  status: 'sent' | 'received' | 'draft';
-}
+export type AssistantState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 export interface CalendarEventItem {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
-  duration?: string;
-  description?: string;
-  category?: string;
-}
-
-export interface NoteItem {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  color?: string;
+  durationMinutes: number;
+  location?: string;
+  category: 'trabajo' | 'personal' | 'salud' | 'reunión';
+  syncedToGoogleCalendar?: boolean;
 }
 
 export interface WhatsAppMessageItem {
   id: string;
-  recipient: string;
-  phone?: string;
+  recipientName: string;
+  recipientPhone: string;
   message: string;
   timestamp: string;
-  status: 'sent' | 'delivered';
+  status: 'borrador' | 'enviado';
+}
+
+export interface EmailItem {
+  id: string;
+  to: string;
+  subject: string;
+  body: string;
+  timestamp: string;
+  read: boolean;
+  type: 'recibido' | 'borrador' | 'enviado';
 }
 
 export interface AlarmItem {
@@ -40,29 +35,54 @@ export interface AlarmItem {
   time: string; // HH:mm
   label: string;
   enabled: boolean;
-  days: string[];
+  days: string[]; // ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 }
 
 export interface ReminderItem {
   id: string;
   text: string;
-  dueTime: string;
+  dueTime?: string;
+  dueDate?: string;
   completed: boolean;
-  priority: 'baja' | 'media' | 'alta';
+  priority: 'alta' | 'media' | 'baja';
+}
+
+export interface NoteItem {
+  id: string;
+  title: string;
+  content: string;
+  updatedAt: string;
+  tags: string[];
 }
 
 export interface ToolInvocation {
-  name: string;
-  args: Record<string, any>;
-  result?: Record<string, any>;
+  id: string;
+  toolName: string;
+  parameters: Record<string, any>;
+  resultSummary: string;
+  timestamp: string;
+  status: 'ejecutado' | 'pendiente' | 'error';
 }
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
-  toolInvocations?: ToolInvocation[];
+  toolsUsed?: ToolInvocation[];
 }
 
-export type AssistantState = 'idle' | 'listening' | 'thinking' | 'speaking';
+export interface AppSettings {
+  theme: 'light' | 'dark' | 'system';
+  density: 'comfortable' | 'compact';
+  showQuickPrompts: boolean;
+  speechRate: number;
+  speechPitch: number;
+  speechVoiceName: string;
+  soundEffectsEnabled: boolean;
+  muteSpeech: boolean;
+  pushNotificationsEnabled: boolean;
+  alarmVibration: boolean;
+  autoListenAfterReply: boolean;
+  confirmBeforeActions: boolean;
+}

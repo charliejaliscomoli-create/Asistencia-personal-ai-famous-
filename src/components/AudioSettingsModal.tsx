@@ -1,140 +1,158 @@
 import React, { useEffect, useState } from 'react';
-import { X, Volume2, Mic, Settings, Sliders, CheckCircle, Sparkles } from 'lucide-react';
+import { X, Volume2, Mic, Play, Check } from 'lucide-react';
 import { speechService } from '../services/speechService';
+import { soundEffects } from '../services/audioService';
 
 interface AudioSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  speechRate: number;
+  onRateChange: (rate: number) => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
 }
 
-export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({ isOpen, onClose }) => {
+export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  speechRate,
+  onRateChange,
+  isMuted,
+  onToggleMute,
+}) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceIndex, setSelectedVoiceIndex] = useState<number>(0);
-  const [speechRate, setSpeechRate] = useState<number>(1.05);
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [pitch, setPitch] = useState<number>(1.0);
+  const [tested, setTested] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      const availableVoices = speechService.getVoices();
-      setVoices(availableVoices);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const updateVoices = () => {
+        const vList = window.speechSynthesis.getVoices();
+        setVoices(vList.filter((v) => v.lang.startsWith('es') || v.lang.startsWith('en')));
+      };
+      updateVoices();
+      window.speechSynthesis.onvoiceschanged = updateVoices;
     }
-  }, [isOpen]);
+  }, []);
 
   if (!isOpen) return null;
 
-  const handleVoiceChange = (idx: number) => {
-    setSelectedVoiceIndex(idx);
-    if (voices[idx]) {
-      speechService.setVoice(voices[idx]);
-    }
-  };
-
-  const handleRateChange = (newRate: number) => {
-    setSpeechRate(newRate);
-    speechService.setRate(newRate);
-  };
-
-  const handleTestSpeech = () => {
-    speechService.speak('Hola, soy tu asistente de voz. He guardado tu recordatorio con éxito.');
+  const handleTestVoice = () => {
+    speechService.setRate(speechRate);
+    speechService.setPitch(pitch);
+    if (selectedVoice) speechService.setPreferredVoice(selectedVoice);
+    speechService.speak('Hola, soy tu asistente de voz personal. Estoy listo para ayudarte.');
+    setTested(true);
+    setTimeout(() => setTested(false), 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">
-              <Sliders className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Ajustes de Voz</h3>
-              <p className="text-[11px] text-slate-500">Configuración de audio y reglas activas</p>
-            </div>
+            <Volume2 className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Ajustes de Audio y Voz</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 space-y-5">
-          {/* Active Interaction Rules Card */}
-          <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
-            <h4 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5 mb-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Reglas del Asistente Activas
-            </h4>
-            <ul className="text-[11px] text-indigo-950/80 space-y-1">
-              <li>• <strong>Voz concisa:</strong> Respuestas de máximo 2 oraciones, claras y naturales.</li>
-              <li>• <strong>Llamada a herramientas:</strong> Llama a la función correspondiente con los datos extraídos.</li>
-              <li>• <strong>Confirmación de parámetros:</strong> Pregunta directamente si falta algún dato obligatorio.</li>
-              <li>• <strong>Confirmación breve:</strong> Confirma la realización de la acción de inmediato.</li>
-            </ul>
-          </div>
-
-          {/* Voice selector */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-              Voz del sistema (Síntesis de voz)
-            </label>
-            <select
-              value={selectedVoiceIndex}
-              onChange={(e) => handleVoiceChange(Number(e.target.value))}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+        <div className="p-5 space-y-4 text-xs">
+          {/* Mute toggle */}
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+            <div>
+              <p className="font-bold text-slate-800">Silenciar respuestas de voz</p>
+              <p className="text-[11px] text-slate-500">Solo mostrar texto en pantalla sin hablar</p>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
+                isMuted ? 'bg-rose-100 text-rose-700' : 'bg-indigo-600 text-white'
+              }`}
             >
-              {voices.map((v, i) => (
-                <option key={i} value={i}>
-                  {v.name} ({v.lang})
-                </option>
-              ))}
-              {voices.length === 0 && <option value={0}>Voz estándar del navegador</option>}
-            </select>
+              {isMuted ? 'Silenciado' : 'Activado'}
+            </button>
           </div>
 
-          {/* Speech Rate Slider */}
-          <div>
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-700">Velocidad de habla</span>
-              <span className="text-slate-500 font-mono">{speechRate.toFixed(2)}x</span>
+          {/* Rate slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-800">Velocidad de reproducción</span>
+              <span className="font-mono text-slate-500 font-bold">{speechRate.toFixed(2)}x</span>
             </div>
             <input
               type="range"
-              min="0.8"
-              max="1.4"
+              min="0.75"
+              max="1.5"
               step="0.05"
               value={speechRate}
-              onChange={(e) => handleRateChange(parseFloat(e.target.value))}
+              onChange={(e) => onRateChange(Number(e.target.value))}
               className="w-full accent-indigo-600 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>Pausada (0.8x)</span>
-              <span>Natural (1.05x)</span>
-              <span>Rápida (1.4x)</span>
-            </div>
           </div>
 
-          {/* Voice Preview Button */}
+          {/* Pitch slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-800">Tono de voz (Pitch)</span>
+              <span className="font-mono text-slate-500 font-bold">{pitch.toFixed(1)}</span>
+            </div>
+            <input
+              type="range"
+              min="0.6"
+              max="1.4"
+              step="0.1"
+              value={pitch}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setPitch(val);
+                speechService.setPitch(val);
+              }}
+              className="w-full accent-indigo-600 cursor-pointer"
+            />
+          </div>
+
+          {/* Voice selector */}
+          {voices.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="font-bold text-slate-800">Voz del sistema</span>
+              <select
+                value={selectedVoice}
+                onChange={(e) => {
+                  setSelectedVoice(e.target.value);
+                  speechService.setPreferredVoice(e.target.value);
+                }}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-indigo-600"
+              >
+                <option value="">Predeterminada del dispositivo</option>
+                {voices.map((v, i) => (
+                  <option key={i} value={v.name}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Test Button */}
           <div className="pt-2">
             <button
-              onClick={handleTestSpeech}
-              className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              type="button"
+              onClick={handleTestVoice}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Volume2 className="w-4 h-4 text-indigo-600" />
-              Probar voz del asistente
+              {tested ? <Check className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
+              <span>Probar Voz y Síntesis</span>
             </button>
           </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
-          >
-            Aceptar
-          </button>
         </div>
       </div>
     </div>
