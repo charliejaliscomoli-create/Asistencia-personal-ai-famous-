@@ -12,7 +12,9 @@
     "lint": "tsc --noEmit",
     "test": "tsc --noEmit",
     "preview": "vite preview",
-    "start": "node server.ts"
+    "start": "node server.ts",
+    "cap:sync": "npx cap sync android",
+    "build:android": "npm run build && npx cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
