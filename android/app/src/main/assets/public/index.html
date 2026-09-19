@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="description" content="Asistente personal por voz inteligente, eficiente y conciso para gestionar correos, calendario, notas, WhatsApp, alarmas y recordatorios." />
+    <meta property="og:title" content="Asistente de Voz Personal" />
+    <meta property="og:description" content="Asistente personal por voz inteligente, eficiente y conciso para gestionar correos, calendario, notas, WhatsApp, alarmas y recordatorios." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Asistente de Voz Personal</title>
+    <script>
+      window.$RefreshReg$ = window.$RefreshReg$ || function() {};
+      window.$RefreshSig$ = window.$RefreshSig$ || function() { return function(type) { return type; }; };
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
+    <script type="module" crossorigin src="/assets/index-CxtWGg2I.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cr9-nLA_.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister();
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) { caches.delete(name); });
+        });
+      }
+    </script>
+  </body>
+</html>
